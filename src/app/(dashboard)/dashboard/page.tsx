@@ -6,7 +6,6 @@ import {
   Briefcase, 
   FileText, 
   Ticket, 
-  TrendingUp, 
   AlertTriangle,
   DollarSign,
   Clock
@@ -50,14 +49,13 @@ export default function DashboardPage() {
         <p className="text-muted-foreground mt-1">Overview of your AMC business operations</p>
       </div>
 
-      {/* Stats Grid */}
       <motion.div
         variants={container}
         initial="hidden"
         animate="show"
         className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
       >
-        {statCards.map((card, i) => (
+        {statCards.map((card) => (
           <motion.div key={card.title} variants={item}>
             <Card className="card-hover">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -75,7 +73,6 @@ export default function DashboardPage() {
       </motion.div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* Revenue Chart */}
         <motion.div variants={item} initial="hidden" animate="show">
           <Card>
             <CardHeader>
@@ -104,7 +101,6 @@ export default function DashboardPage() {
           </Card>
         </motion.div>
 
-        {/* Expiring Contracts */}
         <motion.div variants={item} initial="hidden" animate="show" transition={{ delay: 0.1 }}>
           <Card>
             <CardHeader>
@@ -138,7 +134,6 @@ export default function DashboardPage() {
         </motion.div>
       </div>
 
-      {/* Recent Activity */}
       <motion.div variants={item} initial="hidden" animate="show" transition={{ delay: 0.2 }}>
         <Card>
           <CardHeader>
