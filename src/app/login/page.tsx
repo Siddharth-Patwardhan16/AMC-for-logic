@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { signIn } from 'next-auth/react'
 import { motion } from 'framer-motion'
 import { Building2, Loader2 } from 'lucide-react'
@@ -10,12 +10,26 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
-export default function LoginPage() {
+const authErrorMessages: Record<string, string> = {
+  Configuration: 'Server auth is not configured. Set NEXTAUTH_SECRET in your Netlify environment variables.',
+  CredentialsSignin: 'Invalid email or password',
+  AccessDenied: 'Access denied',
+}
+
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    const authError = searchParams.get('error')
+    if (authError) {
+      setError(authErrorMessages[authError] ?? 'Unable to sign in. Please try again.')
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -29,7 +43,7 @@ export default function LoginPage() {
     })
     
     if (result?.error) {
-      setError('Invalid email or password')
+      setError(authErrorMessages[result.error] ?? 'Invalid email or password')
       setLoading(false)
     } else {
       router.push('/dashboard')
@@ -108,5 +122,13 @@ export default function LoginPage() {
         </Card>
       </motion.div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }
