@@ -1,0 +1,799 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  password      String    // hashed
+  role          UserRole  @default(ENGINEER)
+  status        UserStatus @default(ACTIVE)
+  avatar        String?
+  phone         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLoginAt   DateTime?
+
+  // Relations
+  assignedTickets Ticket[] @relation("AssignedEngineer")
+  visits        EngineerVisit[]
+  createdById   String?
+  
+  @@map("users")
+}
+
+model Company {
+  id              String   @id @default(cuid())
+  name            String
+  logo            String?
+  gstin           String?
+  pan             String?
+  address         String?
+  city            String?
+  state           String?
+  pincode         String?
+  bankName        String?
+  bankAccount     String?
+  bankIfsc        String?
+  bankBranch      String?
+  signature       String?
+  termsConditions String?  @db.Text
+  invoicePrefix   String   @default("INV")
+  quotationPrefix String   @default("QOT")
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  customers       Customer[]
+  invoices        Invoice[]
+  quotations      Quotation[]
+  assets          Asset[]
+  contracts       Contract[]
+  tickets         Ticket[]
+  assetRateHistories AssetRateHistory[]
+  engineerVisits  EngineerVisit[]
+  implementations Implementation[]
+  documents       Document[]
+  materials       Material[]
+
+  @@map("companies")
+}
+
+model Customer {
+  id              String         @id @default(cuid())
+  name            String
+  industry        String?
+  gst             String?
+  pan             String?
+  billingAddress  String?
+  shippingAddress String?
+  status          CustomerStatus @default(LEAD)
+  notes           String?        @db.Text
+  tags            String[]       @default([])
+  
+  companyId       String
+  company         Company        @relation(fields: [companyId], references: [id])
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Relations
+  locations       CustomerLocation[]
+  contactPersons  ContactPerson[]
+  assets          Asset[]
+  contracts       Contract[]
+  tickets         Ticket[]
+  invoices        Invoice[]
+  quotations      Quotation[]
+  implementations Implementation[]
+  documents       Document[]
+  payments        Payment[]
+  crmActivities   CRMActivity[]
+  engineerVisits  EngineerVisit[]
+  preventiveMaintenances PreventiveMaintenance[]
+
+  @@map("customers")
+}
+
+model CustomerLocation {
+  id          String   @id @default(cuid())
+  name        String
+  address     String?
+  city        String?
+  state       String?
+  pincode     String?
+  isHeadOffice Boolean @default(false)
+  
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  assets      Asset[]
+  contracts   Contract[]
+  tickets     Ticket[]
+  engineerVisits EngineerVisit[]
+
+  @@map("customer_locations")
+}
+
+model ContactPerson {
+  id       String @id @default(cuid())
+  name     String
+  email    String?
+  phone    String?
+  designation String?
+  isPrimary Boolean @default(false)
+  
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("contact_persons")
+}
+
+model Asset {
+  id                String     @id @default(cuid())
+  name              String
+  serialNumber      String
+  model             String?
+  oem               String?
+  assetType         AssetType
+  
+  purchaseDate      DateTime?
+  installationDate  DateTime?
+  warrantyStart     DateTime?
+  warrantyEnd       DateTime?
+  amcStart          DateTime?
+  amcEnd            DateTime?
+  
+  location          String?
+  status            AssetStatus @default(ACTIVE)
+  notes             String?     @db.Text
+  
+  customerId        String
+  customer          Customer    @relation(fields: [customerId], references: [id])
+  
+  customerLocationId String?
+  customerLocation   CustomerLocation? @relation(fields: [customerLocationId], references: [id])
+  
+  companyId         String
+  company           Company     @relation(fields: [companyId], references: [id])
+  
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  // Relations
+  contracts         Contract[]
+  tickets           Ticket[]
+  implementations   ImplementationAsset[]
+  documents         Document[]
+
+  @@unique([serialNumber, companyId])
+  @@map("assets")
+}
+
+model AssetRateHistory {
+  id            String    @id @default(cuid())
+  assetType     AssetType
+  rate          Decimal   @db.Decimal(10, 2)
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  
+  companyId     String
+  company       Company   @relation(fields: [companyId], references: [id])
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("asset_rate_history")
+}
+
+model Contract {
+  id          String        @id @default(cuid())
+  contractNumber String     @unique
+  contractType ContractType
+  status      ContractStatus @default(ACTIVE)
+  
+  startDate   DateTime
+  endDate     DateTime
+  value       Decimal       @db.Decimal(12, 2)
+  
+  billingFrequency BillingFrequency @default(YEARLY)
+  
+  customerId  String
+  customer    Customer      @relation(fields: [customerId], references: [id])
+  
+  customerLocationId String?
+  customerLocation   CustomerLocation? @relation(fields: [customerLocationId], references: [id])
+  
+  companyId   String
+  company     Company       @relation(fields: [companyId], references: [id])
+  
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  assets      Asset[]
+  invoices    Invoice[]
+  billings    Billing[]
+  documents   Document[]
+
+  @@map("contracts")
+}
+
+model Billing {
+  id          String    @id @default(cuid())
+  periodStart DateTime
+  periodEnd   DateTime
+  amount      Decimal   @db.Decimal(12, 2)
+  gstAmount   Decimal   @db.Decimal(12, 2)
+  totalAmount Decimal   @db.Decimal(12, 2)
+  status      BillingStatus @default(PENDING)
+  
+  contractId  String
+  contract    Contract  @relation(fields: [contractId], references: [id])
+  
+  invoiceId   String?
+  invoice     Invoice?  @relation(fields: [invoiceId], references: [id])
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("billings")
+}
+
+model Quotation {
+  id          String    @id @default(cuid())
+  quotationNumber String @unique
+  version     Int       @default(1)
+  status      QuotationStatus @default(DRAFT)
+  
+  subtotal    Decimal   @db.Decimal(12, 2)
+  discount    Decimal   @default(0) @db.Decimal(12, 2)
+  taxAmount   Decimal   @db.Decimal(12, 2)
+  totalAmount Decimal   @db.Decimal(12, 2)
+  
+  validUntil  DateTime?
+  notes       String?   @db.Text
+  terms       String?   @db.Text
+  
+  customerId  String
+  customer    Customer  @relation(fields: [customerId], references: [id])
+  
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id])
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  items       QuotationItem[]
+  documents   Document[]
+
+  @@map("quotations")
+}
+
+model QuotationItem {
+  id          String    @id @default(cuid())
+  description String
+  quantity    Int       @default(1)
+  unitPrice   Decimal   @db.Decimal(10, 2)
+  discount    Decimal   @default(0) @db.Decimal(10, 2)
+  taxRate     Decimal   @default(18) @db.Decimal(5, 2)
+  total       Decimal   @db.Decimal(12, 2)
+  itemType    String    // PRODUCT, SERVICE, AMC, IMPLEMENTATION
+  
+  quotationId String
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("quotation_items")
+}
+
+model Invoice {
+  id          String    @id @default(cuid())
+  invoiceNumber String  @unique
+  invoiceType InvoiceType @default(TAX_INVOICE)
+  status      InvoiceStatus @default(DRAFT)
+  
+  issueDate   DateTime  @default(now())
+  dueDate     DateTime
+  
+  subtotal    Decimal   @db.Decimal(12, 2)
+  discount    Decimal   @default(0) @db.Decimal(12, 2)
+  taxAmount   Decimal   @db.Decimal(12, 2)
+  totalAmount Decimal   @db.Decimal(12, 2)
+  
+  paidAmount  Decimal   @default(0) @db.Decimal(12, 2)
+  tdsAmount   Decimal   @default(0) @db.Decimal(12, 2)
+  
+  notes       String?   @db.Text
+  terms       String?   @db.Text
+  
+  customerId  String
+  customer    Customer  @relation(fields: [customerId], references: [id])
+  
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id])
+  
+  contractId  String?
+  contract    Contract? @relation(fields: [contractId], references: [id])
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  items       InvoiceItem[]
+  billings    Billing[]
+  payments    Payment[]
+  documents   Document[]
+
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String    @id @default(cuid())
+  description String
+  quantity    Int       @default(1)
+  unitPrice   Decimal   @db.Decimal(10, 2)
+  discount    Decimal   @default(0) @db.Decimal(10, 2)
+  taxRate     Decimal   @default(18) @db.Decimal(5, 2)
+  total       Decimal   @db.Decimal(12, 2)
+  
+  invoiceId   String
+  invoice     Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("invoice_items")
+}
+
+model Payment {
+  id          String    @id @default(cuid())
+  amount      Decimal   @db.Decimal(12, 2)
+  paymentDate DateTime  @default(now())
+  paymentMode PaymentMode @default(BANK_TRANSFER)
+  reference   String?
+  notes       String?
+  
+  customerId  String
+  customer    Customer  @relation(fields: [customerId], references: [id])
+  
+  invoiceId   String?
+  invoice     Invoice?  @relation(fields: [invoiceId], references: [id])
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("payments")
+}
+
+model Ticket {
+  id          String    @id @default(cuid())
+  ticketNumber String   @unique
+  title       String
+  description String?   @db.Text
+  status      TicketStatus @default(OPEN)
+  priority    TicketPriority @default(MEDIUM)
+  
+  assignedToId String?
+  assignedTo  User?     @relation("AssignedEngineer", fields: [assignedToId], references: [id])
+  
+  customerId  String
+  customer    Customer  @relation(fields: [customerId], references: [id])
+  
+  customerLocationId String?
+  customerLocation   CustomerLocation? @relation(fields: [customerLocationId], references: [id])
+  
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id])
+  
+  assetId     String?
+  asset       Asset?    @relation(fields: [assetId], references: [id])
+  
+  resolvedAt  DateTime?
+  closedAt    DateTime?
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  activities  TicketActivity[]
+  documents   Document[]
+
+  @@map("tickets")
+}
+
+model TicketActivity {
+  id          String    @id @default(cuid())
+  action      String
+  description String?   @db.Text
+  
+  ticketId    String
+  ticket      Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime  @default(now())
+  createdBy   String?
+
+  @@map("ticket_activities")
+}
+
+model EngineerVisit {
+  id          String    @id @default(cuid())
+  visitDate   DateTime
+  checkIn     DateTime?
+  checkOut    DateTime?
+  notes       String?   @db.Text
+  photos      String[]
+  customerSignature String?
+  
+  engineerId  String
+  engineer    User      @relation(fields: [engineerId], references: [id])
+  
+  customerId  String
+  customer    Customer  @relation(fields: [customerId], references: [id])
+  
+  customerLocationId String?
+  customerLocation   CustomerLocation? @relation(fields: [customerLocationId], references: [id])
+  
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id])
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  checklistItems VisitChecklistItem[]
+  documents   Document[]
+
+  @@map("engineer_visits")
+}
+
+model VisitChecklistItem {
+  id          String    @id @default(cuid())
+  item        String
+  checked     Boolean   @default(false)
+  notes       String?
+  
+  visitId     String
+  visit       EngineerVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("visit_checklist_items")
+}
+
+model Implementation {
+  id          String    @id @default(cuid())
+  title       String
+  description String?   @db.Text
+  implementDate DateTime
+  engineerName String?
+  
+  customerId  String
+  customer    Customer  @relation(fields: [customerId], references: [id])
+  
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id])
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  assets      ImplementationAsset[]
+  documents   Document[]
+
+  @@map("implementations")
+}
+
+model ImplementationAsset {
+  id          String    @id @default(cuid())
+  quantity    Int       @default(1)
+  description String?
+  
+  implementationId String
+  implementation   Implementation @relation(fields: [implementationId], references: [id], onDelete: Cascade)
+  
+  assetId     String?
+  asset       Asset?    @relation(fields: [assetId], references: [id])
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("implementation_assets")
+}
+
+model Document {
+  id          String    @id @default(cuid())
+  name        String
+  fileType    String
+  fileUrl     String
+  fileSize    Int?
+  version     Int       @default(1)
+  
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id])
+  
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id])
+  
+  contractId  String?
+  contract    Contract? @relation(fields: [contractId], references: [id])
+  
+  invoiceId   String?
+  invoice     Invoice?  @relation(fields: [invoiceId], references: [id])
+  
+  quotationId String?
+  quotation   Quotation? @relation(fields: [quotationId], references: [id])
+  
+  ticketId    String?
+  ticket      Ticket?   @relation(fields: [ticketId], references: [id])
+  
+  assetId     String?
+  asset       Asset?    @relation(fields: [assetId], references: [id])
+  
+  implementationId String?
+  implementation   Implementation? @relation(fields: [implementationId], references: [id])
+  
+  visitId     String?
+  visit       EngineerVisit? @relation(fields: [visitId], references: [id])
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("documents")
+}
+
+model CRMActivity {
+  id          String    @id @default(cuid())
+  activityType CRMActivityType
+  subject     String
+  description String?   @db.Text
+  scheduledAt DateTime?
+  completedAt DateTime?
+  status      CRMStatus  @default(PENDING)
+  
+  customerId  String
+  customer    Customer  @relation(fields: [customerId], references: [id])
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("crm_activities")
+}
+
+model KnowledgeBase {
+  id          String    @id @default(cuid())
+  title       String
+  content     String    @db.Text
+  category    String
+  tags        String[]
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("knowledge_base")
+}
+
+model Material {
+  id              String         @id @default(cuid())
+  name            String
+  sku             String
+  category        MaterialCategory @default(OTHER)
+  unit            String         @default("pcs")
+  quantity        Int            @default(0)
+  minStockLevel   Int            @default(0)
+  unitPrice       Decimal        @default(0) @db.Decimal(10, 2)
+  status          MaterialStatus @default(IN_STOCK)
+  notes           String?        @db.Text
+
+  companyId       String
+  company         Company        @relation(fields: [companyId], references: [id])
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([sku, companyId])
+  @@map("materials")
+}
+
+model PreventiveMaintenance {
+  id          String    @id @default(cuid())
+  title       String
+  description String?   @db.Text
+  frequency   MaintenanceFrequency
+  nextDue     DateTime
+  lastDone    DateTime?
+  
+  customerId  String
+  customer    Customer  @relation(fields: [customerId], references: [id])
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("preventive_maintenance")
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  MANAGER
+  ENGINEER
+  ACCOUNTS
+  VIEWER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum CustomerStatus {
+  LEAD
+  PROSPECT
+  ACTIVE
+  INACTIVE
+  CLOSED
+  ARCHIVED
+}
+
+enum AssetType {
+  SERVER
+  DESKTOP
+  LAPTOP
+  THIN_CLIENT
+  FIREWALL
+  SWITCH
+  ROUTER
+  UPS
+  STORAGE
+  PRINTER
+  CCTV
+  BIOMETRIC
+  ACCESS_CONTROL
+  OTHER
+}
+
+enum AssetStatus {
+  ACTIVE
+  INACTIVE
+  UNDER_MAINTENANCE
+  DECOMMISSIONED
+  WARANTY_EXPIRED
+}
+
+enum ContractType {
+  QUARTERLY_AMC
+  HALF_YEARLY_AMC
+  YEARLY_AMC
+  MONTHLY_SUPPORT
+  PROJECT_BASED
+  NON_AMC
+}
+
+enum ContractStatus {
+  ACTIVE
+  EXPIRED
+  TERMINATED
+  PENDING_RENEWAL
+}
+
+enum BillingFrequency {
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  YEARLY
+}
+
+enum BillingStatus {
+  PENDING
+  INVOICED
+  PAID
+  OVERDUE
+}
+
+enum QuotationStatus {
+  DRAFT
+  SENT
+  APPROVED
+  REJECTED
+  EXPIRED
+  CONVERTED
+}
+
+enum InvoiceType {
+  TAX_INVOICE
+  PROFORMA_INVOICE
+  AMC_INVOICE
+  PROJECT_INVOICE
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMode {
+  CASH
+  CHEQUE
+  BANK_TRANSFER
+  UPI
+  CARD
+  ONLINE
+}
+
+enum TicketStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  WAITING
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum CRMActivityType {
+  CALL
+  MEETING
+  EMAIL
+  QUOTATION
+  NEGOTIATION
+  FOLLOW_UP
+  NOTE
+}
+
+enum CRMStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum MaintenanceFrequency {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  YEARLY
+}
+
+enum MaterialCategory {
+  SPARE_PART
+  CONSUMABLE
+  CABLE
+  TOOL
+  OTHER
+}
+
+enum MaterialStatus {
+  IN_STOCK
+  LOW_STOCK
+  OUT_OF_STOCK
+  DISCONTINUED
+}
