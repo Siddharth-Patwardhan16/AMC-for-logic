@@ -1,5 +1,36 @@
 import { z } from 'zod'
 import { protectedProcedure, router } from '../context'
+import { buildAmcNotes, resolveCompanyId } from '@/lib/amc-excel-parser'
+
+const amcImportRowSchema = z.object({
+  srNo: z.number().nullable().optional(),
+  name: z.string().min(1),
+  description: z.string().optional(),
+  companyLabel: z.string(),
+  location: z.string(),
+  serverRateYearly: z.number(),
+  serverQtyQ1: z.number(),
+  serverQtyQ2: z.number(),
+  serverQtyQ3: z.number(),
+  serverQtyQ4: z.number(),
+  thinClientRateYearly: z.number(),
+  thinClientQtyQ1: z.number(),
+  thinClientQtyQ2: z.number(),
+  thinClientQtyQ3: z.number(),
+  thinClientQtyQ4: z.number(),
+  laptopDesktopRateYearly: z.number(),
+  laptopDesktopQtyQ1: z.number(),
+  laptopDesktopQtyQ2: z.number(),
+  laptopDesktopQtyQ3: z.number(),
+  laptopDesktopQtyQ4: z.number(),
+  amountQ1: z.number(),
+  amountQ2: z.number(),
+  amountQ3: z.number(),
+  amountQ4: z.number(),
+  quarterlyTotal: z.number(),
+  yearlyAmount: z.number(),
+  section: z.string().optional(),
+})
 
 export const customerRouter = router({
   list: protectedProcedure
@@ -16,7 +47,7 @@ export const customerRouter = router({
         where.OR = [
           { name: { contains: input.search, mode: 'insensitive' } },
           { gst: { contains: input.search, mode: 'insensitive' } },
-          { email: { contains: input.search, mode: 'insensitive' } },
+          { industry: { contains: input.search, mode: 'insensitive' } },
         ]
       }
       return ctx.prisma.customer.findMany({
@@ -91,6 +122,86 @@ export const customerRouter = router({
           contactPersons: true,
         },
       })
+    }),
+
+  importAmcSpreadsheet: protectedProcedure
+    .input(z.object({
+      rows: z.array(amcImportRowSchema),
+      defaultCompanyId: z.string().optional(),
+      skipExisting: z.boolean().default(true),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const companies = await ctx.prisma.company.findMany({ where: { isActive: true } })
+      if (!companies.length) {
+        throw new Error('No company found. Add a company in Settings before importing customers.')
+      }
+
+      const defaultCompanyId = input.defaultCompanyId ?? companies[0].id
+      const fyStart = new Date('2026-04-01')
+      const fyEnd = new Date('2027-03-31')
+
+      let created = 0
+      let skipped = 0
+      const errors: string[] = []
+
+      for (const row of input.rows) {
+        try {
+          const companyId =
+            resolveCompanyId(row.companyLabel, companies) ??
+            defaultCompanyId
+
+          if (input.skipExisting) {
+            const existing = await ctx.prisma.customer.findFirst({
+              where: {
+                companyId,
+                name: { equals: row.name, mode: 'insensitive' },
+              },
+            })
+            if (existing) {
+              skipped++
+              continue
+            }
+          }
+
+          const contractValue = row.yearlyAmount > 0 ? row.yearlyAmount : row.quarterlyTotal * 4
+          const contractNumber = `AMC-${new Date().getFullYear()}-${String(created + skipped + 1).padStart(4, '0')}`
+
+          await ctx.prisma.customer.create({
+            data: {
+              name: row.name.trim(),
+              status: 'ACTIVE',
+              notes: buildAmcNotes({ ...row, srNo: row.srNo ?? null }),
+              tags: ['amc-import', row.section?.toLowerCase().replace(/\s+/g, '-') ?? 'q1'],
+              companyId,
+              locations: {
+                create: [{
+                  name: row.location || 'Head Office',
+                  city: row.location,
+                  isHeadOffice: true,
+                }],
+              },
+              contracts: contractValue > 0 ? {
+                create: [{
+                  contractNumber,
+                  contractType: 'YEARLY_AMC',
+                  status: 'ACTIVE',
+                  startDate: fyStart,
+                  endDate: fyEnd,
+                  value: contractValue,
+                  billingFrequency: 'QUARTERLY',
+                  companyId,
+                }],
+              } : undefined,
+            },
+          })
+
+          created++
+        } catch (error) {
+          errors.push(`${row.name}: ${error instanceof Error ? error.message : 'Import failed'}`)
+        }
+      }
+
+      return { created, skipped, errors, total: input.rows.length }
     }),
 
   update: protectedProcedure
