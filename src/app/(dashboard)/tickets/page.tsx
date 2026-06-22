@@ -3,28 +3,25 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Plus, Search, Ticket, ArrowRight, AlertTriangle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Plus, Search, Ticket, ArrowRight } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { trpc } from '@/components/providers'
 
-const ticketStatusColors: Record<string, string> = {
-  OPEN: 'info',
-  ASSIGNED: 'secondary',
-  IN_PROGRESS: 'warning',
-  WAITING: 'secondary',
-  RESOLVED: 'success',
-  CLOSED: 'default',
+const priorityColors: Record<string, string> = {
+  LOW: 'text-[#A1A1AA] bg-[#171717]',
+  MEDIUM: 'text-[#4F8CFF] bg-[#4F8CFF]/10',
+  HIGH: 'text-[#EAB308] bg-[#EAB308]/10',
+  CRITICAL: 'text-[#EF4444] bg-[#EF4444]/10',
 }
 
-const ticketPriorityColors: Record<string, string> = {
-  LOW: 'secondary',
-  MEDIUM: 'info',
-  HIGH: 'warning',
-  CRITICAL: 'destructive',
+const statusColors: Record<string, string> = {
+  OPEN: 'text-[#4F8CFF] bg-[#4F8CFF]/10',
+  ASSIGNED: 'text-[#A855F7] bg-[#A855F7]/10',
+  IN_PROGRESS: 'text-[#EAB308] bg-[#EAB308]/10',
+  WAITING: 'text-[#A1A1AA] bg-[#171717]',
+  RESOLVED: 'text-[#22C55E] bg-[#22C55E]/10',
+  CLOSED: 'text-[#52525B] bg-[#171717]',
 }
 
 export default function TicketsPage() {
@@ -38,123 +35,85 @@ export default function TicketsPage() {
   })
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-5 lg:p-8 max-w-[1400px] mx-auto">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Tickets</h1>
-          <p className="text-muted-foreground mt-1">Track support tickets and service requests</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Tickets</h1>
+          <p className="text-sm text-[#A1A1AA] mt-1">Support & service requests</p>
         </div>
         <Link href="/tickets/new">
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
+          <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#4F8CFF] hover:bg-[#4F8CFF]/90 text-white text-sm font-medium transition-all active:scale-[0.98]">
+            <Plus className="h-4 w-4" />
             New Ticket
-          </Button>
+          </button>
         </Link>
       </div>
 
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search tickets..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All Statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">All Statuses</SelectItem>
-                <SelectItem value="OPEN">Open</SelectItem>
-                <SelectItem value="ASSIGNED">Assigned</SelectItem>
-                <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                <SelectItem value="WAITING">Waiting</SelectItem>
-                <SelectItem value="RESOLVED">Resolved</SelectItem>
-                <SelectItem value="CLOSED">Closed</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={priority} onValueChange={setPriority}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All Priorities" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">All Priorities</SelectItem>
-                <SelectItem value="LOW">Low</SelectItem>
-                <SelectItem value="MEDIUM">Medium</SelectItem>
-                <SelectItem value="HIGH">High</SelectItem>
-                <SelectItem value="CRITICAL">Critical</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="relative flex-1">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#52525B]" />
+          <Input
+            placeholder="Search tickets..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <select
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+          className="h-10 px-3 rounded-xl bg-[#111111] border border-[#262626] text-sm text-[#A1A1AA] focus:outline-none focus:border-[#4F8CFF]/30"
+        >
+          <option value="">All Status</option>
+          <option value="OPEN">Open</option>
+          <option value="ASSIGNED">Assigned</option>
+          <option value="IN_PROGRESS">In Progress</option>
+          <option value="WAITING">Waiting</option>
+          <option value="RESOLVED">Resolved</option>
+          <option value="CLOSED">Closed</option>
+        </select>
+      </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="space-y-3">
         {tickets?.map((ticket, i) => (
           <motion.div
             key={ticket.id}
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
+            transition={{ delay: i * 0.03, duration: 0.25 }}
           >
             <Link href={`/tickets/${ticket.id}`}>
-              <Card className="card-hover cursor-pointer h-full">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Ticket className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-lg">{ticket.ticketNumber}</CardTitle>
-                        <p className="text-sm text-muted-foreground">{ticket.customer?.name}</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-1">
-                      <Badge variant={ticketPriorityColors[ticket.priority] as any}>
-                        {ticket.priority}
-                      </Badge>
-                    </div>
+              <div className="p-4 rounded-2xl bg-[#111111] border border-[#262626] hover:border-[#333333] transition-all duration-300 group cursor-pointer flex items-center gap-4">
+                <div className="h-10 w-10 rounded-xl bg-[#EF4444]/10 flex items-center justify-center flex-shrink-0">
+                  <Ticket className="h-4 w-4 text-[#EF4444]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <p className="text-sm font-medium text-white">{ticket.ticketNumber}</p>
+                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-medium ${priorityColors[ticket.priority] || priorityColors.LOW}`}>
+                      {ticket.priority}
+                    </span>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium truncate">{ticket.title}</p>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Status</span>
-                      <Badge variant={ticketStatusColors[ticket.status] as any}>
-                        {ticket.status.replace('_', ' ')}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Assigned To</span>
-                      <span>{ticket.assignedTo?.name || 'Unassigned'}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Activities</span>
-                      <span>{ticket._count?.activities || 0}</span>
-                    </div>
-                  </div>
-                  <div className="mt-4 flex items-center text-sm text-primary">
-                    View Details <ArrowRight className="h-4 w-4 ml-1" />
-                  </div>
-                </CardContent>
-              </Card>
+                  <p className="text-xs text-[#52525B] truncate">{ticket.title}</p>
+                </div>
+                <div className="text-right flex-shrink-0 hidden sm:block">
+                  <p className="text-xs text-[#A1A1AA]">{ticket.customer?.name}</p>
+                  <p className="text-[10px] text-[#52525B]">{ticket.assignedTo?.name || 'Unassigned'}</p>
+                </div>
+                <ArrowRight className="h-4 w-4 text-[#52525B] group-hover:text-[#4F8CFF] group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+              </div>
             </Link>
           </motion.div>
         ))}
       </div>
 
       {tickets?.length === 0 && (
-        <div className="text-center py-12">
-          <Ticket className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium">No tickets found</h3>
-          <p className="text-muted-foreground">Create your first support ticket</p>
+        <div className="text-center py-16">
+          <div className="h-12 w-12 rounded-2xl bg-[#171717] flex items-center justify-center mx-auto mb-4">
+            <Ticket className="h-5 w-5 text-[#52525B]" />
+          </div>
+          <p className="text-sm text-[#A1A1AA]">No tickets found</p>
+          <p className="text-xs text-[#52525B] mt-1">Create your first ticket</p>
         </div>
       )}
     </div>

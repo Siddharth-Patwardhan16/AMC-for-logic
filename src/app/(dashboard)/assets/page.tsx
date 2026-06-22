@@ -3,37 +3,26 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Plus, Search, Filter, ArrowRight, HardDrive } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Plus, Search, HardDrive, ArrowRight } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { trpc } from '@/components/providers'
 
-const assetTypeIcons: Record<string, string> = {
-  SERVER: 'Server',
-  DESKTOP: 'Desktop',
-  LAPTOP: 'Laptop',
-  THIN_CLIENT: 'Thin Client',
-  FIREWALL: 'Firewall',
-  SWITCH: 'Switch',
-  ROUTER: 'Router',
-  UPS: 'UPS',
-  STORAGE: 'Storage',
-  PRINTER: 'Printer',
-  CCTV: 'CCTV',
-  BIOMETRIC: 'Biometric',
-  ACCESS_CONTROL: 'Access Control',
-  OTHER: 'Other',
-}
-
-const assetStatusColors: Record<string, string> = {
-  ACTIVE: 'success',
-  INACTIVE: 'secondary',
-  UNDER_MAINTENANCE: 'warning',
-  DECOMMISSIONED: 'destructive',
-  WARANTY_EXPIRED: 'destructive',
+const typeColors: Record<string, string> = {
+  SERVER: 'text-[#4F8CFF] bg-[#4F8CFF]/10',
+  DESKTOP: 'text-[#A855F7] bg-[#A855F7]/10',
+  LAPTOP: 'text-[#22C55E] bg-[#22C55E]/10',
+  THIN_CLIENT: 'text-[#EAB308] bg-[#EAB308]/10',
+  FIREWALL: 'text-[#EF4444] bg-[#EF4444]/10',
+  SWITCH: 'text-[#06B6D4] bg-[#06B6D4]/10',
+  ROUTER: 'text-[#F97316] bg-[#F97316]/10',
+  UPS: 'text-[#8B5CF6] bg-[#8B5CF6]/10',
+  STORAGE: 'text-[#EC4899] bg-[#EC4899]/10',
+  PRINTER: 'text-[#14B8A6] bg-[#14B8A6]/10',
+  CCTV: 'text-[#6366F1] bg-[#6366F1]/10',
+  BIOMETRIC: 'text-[#84CC16] bg-[#84CC16]/10',
+  ACCESS_CONTROL: 'text-[#D946EF] bg-[#D946EF]/10',
+  OTHER: 'text-[#A1A1AA] bg-[#171717]',
 }
 
 export default function AssetsPage() {
@@ -48,122 +37,89 @@ export default function AssetsPage() {
   })
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-5 lg:p-8 max-w-[1400px] mx-auto">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Assets</h1>
-          <p className="text-muted-foreground mt-1">Track and manage IT assets across all customers</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Assets</h1>
+          <p className="text-sm text-[#A1A1AA] mt-1">{assets?.length || 0} under management</p>
         </div>
         <Link href="/assets/new">
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Asset
-          </Button>
+          <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#4F8CFF] hover:bg-[#4F8CFF]/90 text-white text-sm font-medium transition-all active:scale-[0.98]">
+            <Plus className="h-4 w-4" />
+            New Asset
+          </button>
         </Link>
       </div>
 
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by name, serial, model..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={assetType} onValueChange={setAssetType}>
-              <SelectTrigger className="w-[180px]">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="All Types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">All Types</SelectItem>
-                {Object.keys(assetTypeIcons).map((type) => (
-                  <SelectItem key={type} value={type}>{type.replace('_', ' ')}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="w-[180px]">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="All Statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">All Statuses</SelectItem>
-                <SelectItem value="ACTIVE">Active</SelectItem>
-                <SelectItem value="INACTIVE">Inactive</SelectItem>
-                <SelectItem value="UNDER_MAINTENANCE">Under Maintenance</SelectItem>
-                <SelectItem value="DECOMMISSIONED">Decommissioned</SelectItem>
-                <SelectItem value="WARANTY_EXPIRED">Warranty Expired</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="relative flex-1">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#52525B]" />
+          <Input
+            placeholder="Search by name, serial, model..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <select
+          value={assetType}
+          onChange={(e) => setAssetType(e.target.value)}
+          className="h-10 px-3 rounded-xl bg-[#111111] border border-[#262626] text-sm text-[#A1A1AA] focus:outline-none focus:border-[#4F8CFF]/30"
+        >
+          <option value="">All Types</option>
+          <option value="SERVER">Server</option>
+          <option value="DESKTOP">Desktop</option>
+          <option value="LAPTOP">Laptop</option>
+          <option value="FIREWALL">Firewall</option>
+          <option value="SWITCH">Switch</option>
+          <option value="UPS">UPS</option>
+          <option value="PRINTER">Printer</option>
+          <option value="CCTV">CCTV</option>
+          <option value="OTHER">Other</option>
+        </select>
+      </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {assets?.map((asset, i) => (
           <motion.div
             key={asset.id}
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
+            transition={{ delay: i * 0.04, duration: 0.3 }}
           >
             <Link href={`/assets/${asset.id}`}>
-              <Card className="card-hover cursor-pointer h-full">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <HardDrive className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-lg">{asset.name}</CardTitle>
-                        <p className="text-sm text-muted-foreground">{asset.serialNumber}</p>
-                      </div>
+              <div className="p-5 rounded-2xl bg-[#111111] border border-[#262626] hover:border-[#333333] transition-all duration-300 group cursor-pointer">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-[#22C55E]/10 flex items-center justify-center">
+                      <HardDrive className="h-5 w-5 text-[#22C55E]" />
                     </div>
-                    <Badge variant={assetStatusColors[asset.status] as any}>
-                      {asset.status.replace('_', ' ')}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Type</span>
-                      <span>{asset.assetType.replace('_', ' ')}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Customer</span>
-                      <span>{asset.customer?.name}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Model</span>
-                      <span>{asset.model || 'N/A'}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Tickets</span>
-                      <span>{asset._count?.tickets || 0}</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-white truncate">{asset.name}</p>
+                      <p className="text-xs text-[#52525B]">{asset.serialNumber}</p>
                     </div>
                   </div>
-                  <div className="mt-4 flex items-center text-sm text-primary">
-                    View Details <ArrowRight className="h-4 w-4 ml-1" />
-                  </div>
-                </CardContent>
-              </Card>
+                  <span className={`px-2 py-1 rounded-lg text-[10px] font-medium ${typeColors[asset.assetType] || typeColors.OTHER}`}>
+                    {asset.assetType.replace('_', ' ')}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between pt-3 border-t border-[#262626]">
+                  <span className="text-xs text-[#A1A1AA]">{asset.customer?.name}</span>
+                  <ArrowRight className="h-4 w-4 text-[#52525B] group-hover:text-[#4F8CFF] group-hover:translate-x-0.5 transition-all" />
+                </div>
+              </div>
             </Link>
           </motion.div>
         ))}
       </div>
 
       {assets?.length === 0 && (
-        <div className="text-center py-12">
-          <HardDrive className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium">No assets found</h3>
-          <p className="text-muted-foreground">Add your first asset to get started</p>
+        <div className="text-center py-16">
+          <div className="h-12 w-12 rounded-2xl bg-[#171717] flex items-center justify-center mx-auto mb-4">
+            <HardDrive className="h-5 w-5 text-[#52525B]" />
+          </div>
+          <p className="text-sm text-[#A1A1AA]">No assets found</p>
+          <p className="text-xs text-[#52525B] mt-1">Add your first asset</p>
         </div>
       )}
     </div>

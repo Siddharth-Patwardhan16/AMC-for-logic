@@ -4,10 +4,9 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Search, FolderOpen, File, Image, FileText } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { trpc } from '@/components/providers'
 
-const fileTypeIcons: Record<string, any> = {
+const fileIcons: Record<string, any> = {
   pdf: FileText,
   doc: FileText,
   docx: FileText,
@@ -16,7 +15,6 @@ const fileTypeIcons: Record<string, any> = {
   png: Image,
   jpg: Image,
   jpeg: Image,
-  gif: Image,
   default: File,
 }
 
@@ -25,59 +23,50 @@ export default function DocumentsPage() {
 
   const { data: documents } = trpc.document.list.useQuery()
 
-  const filtered = documents?.filter(d =>
+  const filtered = documents?.filter((d: any) =>
     d.name.toLowerCase().includes(search.toLowerCase())
   )
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Document Vault</h1>
-        <p className="text-muted-foreground mt-1">Store and manage all your documents</p>
+    <div className="p-5 lg:p-8 max-w-[1400px] mx-auto">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-white tracking-tight">Documents</h1>
+        <p className="text-sm text-[#A1A1AA] mt-1">Files & attachments</p>
       </div>
 
-      <Card>
-        <CardContent className="p-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search documents..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      <div className="relative mb-6">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#52525B]" />
+        <Input
+          placeholder="Search documents..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-10"
+        />
+      </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {filtered?.map((doc, i) => {
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {filtered?.map((doc: any, i: number) => {
           const ext = doc.fileType.toLowerCase()
-          const Icon = fileTypeIcons[ext] || fileTypeIcons.default
+          const Icon = fileIcons[ext] || fileIcons.default
           return (
             <motion.div
               key={doc.id}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
+              transition={{ delay: i * 0.04, duration: 0.3 }}
             >
               <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
-                <Card className="card-hover cursor-pointer h-full">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Icon className="h-5 w-5 text-primary" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-medium text-sm truncate">{doc.name}</p>
-                        <p className="text-xs text-muted-foreground">{doc.fileType.toUpperCase()} · v{doc.version}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(doc.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
+                <div className="p-4 rounded-2xl bg-[#111111] border border-[#262626] hover:border-[#333333] transition-all duration-300 cursor-pointer">
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-[#171717] flex items-center justify-center flex-shrink-0">
+                      <Icon className="h-4 w-4 text-[#A1A1AA]" />
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-white truncate">{doc.name}</p>
+                      <p className="text-[10px] text-[#52525B] mt-0.5">{doc.fileType.toUpperCase()} · v{doc.version}</p>
+                    </div>
+                  </div>
+                </div>
               </a>
             </motion.div>
           )
@@ -85,10 +74,12 @@ export default function DocumentsPage() {
       </div>
 
       {filtered?.length === 0 && (
-        <div className="text-center py-12">
-          <FolderOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium">No documents found</h3>
-          <p className="text-muted-foreground">Upload your first document</p>
+        <div className="text-center py-16">
+          <div className="h-12 w-12 rounded-2xl bg-[#171717] flex items-center justify-center mx-auto mb-4">
+            <FolderOpen className="h-5 w-5 text-[#52525B]" />
+          </div>
+          <p className="text-sm text-[#A1A1AA]">No documents found</p>
+          <p className="text-xs text-[#52525B] mt-1">Upload your first document</p>
         </div>
       )}
     </div>

@@ -44,6 +44,8 @@ export const customerRouter = router({
           invoices: { orderBy: { createdAt: 'desc' }, take: 10 },
           implementations: { orderBy: { implementDate: 'desc' } },
           crmActivities: { orderBy: { createdAt: 'desc' } },
+          documents: { orderBy: { createdAt: 'desc' } },
+          payments: { orderBy: { createdAt: 'desc' }, take: 10 },
         },
       })
     }),

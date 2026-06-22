@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AMC ERP - IT Service Management",
-  description: "Complete AMC, IT Asset Management, Service Desk, CRM, Billing, and Implementation Tracking platform",
+  title: "AMC ERP",
+  description: "IT Service Management Platform",
 };
 
 export default function RootLayout({
@@ -25,10 +25,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+    <html lang="en">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <TRPCProvider>
           {children}
           <Toaster />

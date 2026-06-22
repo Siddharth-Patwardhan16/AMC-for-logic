@@ -1,38 +1,26 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/lib/auth-options'
-import { Sidebar } from '@/components/layout/sidebar'
-import { Header } from '@/components/layout/header'
+import { MinimalSidebar } from '@/components/layout/minimal-sidebar'
+import { TopBar } from '@/components/layout/top-bar'
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  let session = null
-  try {
-    session = await getServerSession(authOptions)
-  } catch (error) {
-    console.error('Dashboard session error:', error)
-  }
-
+  const session = await getServerSession()
   if (!session) {
     redirect('/login')
   }
 
-  const cookieStore = await cookies()
-  const selectedCompany = cookieStore.get('selectedCompanyId')?.value
-
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar />
-      <div className="lg:ml-64">
-        <Header user={session.user} />
-        <main className="p-6 pt-20">
-          <div className="animate-slide-in">
-            {children}
-          </div>
+    <div className="min-h-screen bg-[#0A0A0A]">
+      <MinimalSidebar />
+      <div className="lg:ml-[200px]">
+        <TopBar user={session.user} />
+        <main className="pt-14">
+          {children}
         </main>
       </div>
     </div>

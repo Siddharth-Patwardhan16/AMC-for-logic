@@ -2,38 +2,33 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Plus, Search, Megaphone, Phone, Mail, Calendar, CheckCircle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Plus, Search, Megaphone, Phone, CheckCircle, ArrowRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
 import { trpc } from '@/components/providers'
 import { toast } from 'sonner'
 
-const activityTypeIcons: Record<string, any> = {
-  CALL: Phone,
-  MEETING: Calendar,
-  EMAIL: Mail,
-  QUOTATION: Megaphone,
-  NEGOTIATION: Megaphone,
-  FOLLOW_UP: Phone,
-  NOTE: Megaphone,
+const statusColors: Record<string, string> = {
+  PENDING: 'text-[#EAB308] bg-[#EAB308]/10',
+  COMPLETED: 'text-[#22C55E] bg-[#22C55E]/10',
+  CANCELLED: 'text-[#EF4444] bg-[#EF4444]/10',
 }
 
-const statusColors: Record<string, string> = {
-  PENDING: 'warning',
-  COMPLETED: 'success',
-  CANCELLED: 'destructive',
+const typeLabels: Record<string, string> = {
+  CALL: 'Call',
+  MEETING: 'Meeting',
+  EMAIL: 'Email',
+  QUOTATION: 'Quotation',
+  NEGOTIATION: 'Negotiation',
+  FOLLOW_UP: 'Follow Up',
+  NOTE: 'Note',
 }
 
 export default function CRMPage() {
   const [search, setSearch] = useState('')
-  const [activityType, setActivityType] = useState('')
   const [status, setStatus] = useState('')
 
   const { data: activities, refetch } = trpc.crm.listActivities.useQuery({
-    activityType: activityType || undefined,
     status: status || undefined,
   })
 
@@ -41,145 +36,112 @@ export default function CRMPage() {
 
   const updateMutation = trpc.crm.updateActivity.useMutation({
     onSuccess: () => {
-      toast.success('Activity updated')
+      toast.success('Completed')
       refetch()
     },
   })
 
-  const filtered = activities?.filter(a =>
+  const filtered = activities?.filter((a: any) =>
     a.subject.toLowerCase().includes(search.toLowerCase()) ||
     a.customer?.name?.toLowerCase().includes(search.toLowerCase())
   )
 
+  const stages = [
+    { label: 'Leads', value: pipeline?.leads || 0, color: 'bg-[#4F8CFF]/10 text-[#4F8CFF]' },
+    { label: 'Prospects', value: pipeline?.prospects || 0, color: 'bg-[#A855F7]/10 text-[#A855F7]' },
+    { label: 'Active', value: pipeline?.active || 0, color: 'bg-[#22C55E]/10 text-[#22C55E]' },
+    { label: 'Closed', value: pipeline?.closed || 0, color: 'bg-[#171717] text-[#A1A1AA]' },
+  ]
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-5 lg:p-8 max-w-[1400px] mx-auto">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">CRM</h1>
-          <p className="text-muted-foreground mt-1">Track leads, activities, and customer pipeline</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">CRM</h1>
+          <p className="text-sm text-[#A1A1AA] mt-1">Pipeline & activities</p>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
+        <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#4F8CFF] hover:bg-[#4F8CFF]/90 text-white text-sm font-medium transition-all active:scale-[0.98]">
+          <Plus className="h-4 w-4" />
           Add Activity
-        </Button>
+        </button>
       </div>
 
-      {/* Pipeline Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
-        {[
-          { label: 'Leads', value: pipeline?.leads || 0, color: 'bg-blue-400/10 text-blue-400' },
-          { label: 'Prospects', value: pipeline?.prospects || 0, color: 'bg-purple-400/10 text-purple-400' },
-          { label: 'Active', value: pipeline?.active || 0, color: 'bg-green-400/10 text-green-400' },
-          { label: 'Closed', value: pipeline?.closed || 0, color: 'bg-gray-400/10 text-gray-400' },
-        ].map((stat) => (
-          <Card key={stat.label} className="card-hover">
-            <CardContent className="p-4">
-              <p className="text-sm text-muted-foreground">{stat.label}</p>
-              <p className="text-2xl font-bold mt-1">{stat.value}</p>
-            </CardContent>
-          </Card>
+      {/* Pipeline */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+        {stages.map((stage) => (
+          <div key={stage.label} className="p-4 rounded-2xl bg-[#111111] border border-[#262626]">
+            <p className="text-xs text-[#52525B] mb-1">{stage.label}</p>
+            <p className="text-2xl font-bold text-white">{stage.value}</p>
+          </div>
         ))}
       </div>
 
       {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search activities..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={activityType} onValueChange={setActivityType}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All Types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">All Types</SelectItem>
-                <SelectItem value="CALL">Call</SelectItem>
-                <SelectItem value="MEETING">Meeting</SelectItem>
-                <SelectItem value="EMAIL">Email</SelectItem>
-                <SelectItem value="QUOTATION">Quotation</SelectItem>
-                <SelectItem value="NEGOTIATION">Negotiation</SelectItem>
-                <SelectItem value="FOLLOW_UP">Follow Up</SelectItem>
-                <SelectItem value="NOTE">Note</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All Statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">All Statuses</SelectItem>
-                <SelectItem value="PENDING">Pending</SelectItem>
-                <SelectItem value="COMPLETED">Completed</SelectItem>
-                <SelectItem value="CANCELLED">Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="relative flex-1">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#52525B]" />
+          <Input
+            placeholder="Search activities..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <select
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+          className="h-10 px-3 rounded-xl bg-[#111111] border border-[#262626] text-sm text-[#A1A1AA] focus:outline-none focus:border-[#4F8CFF]/30"
+        >
+          <option value="">All Status</option>
+          <option value="PENDING">Pending</option>
+          <option value="COMPLETED">Completed</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select>
+      </div>
 
-      {/* Activities List */}
-      <div className="space-y-3">
-        {filtered?.map((activity, i) => {
-          const Icon = activityTypeIcons[activity.activityType] || Megaphone
-          return (
-            <motion.div
-              key={activity.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-            >
-              <Card className="card-hover">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Icon className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">{activity.subject}</p>
-                        <Badge variant={statusColors[activity.status] as any} className="text-xs">
-                          {activity.status}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{activity.customer?.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {activity.scheduledAt ? new Date(activity.scheduledAt).toLocaleString() : 'No schedule'}
-                      </p>
-                    </div>
-                    {activity.status === 'PENDING' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => updateMutation.mutate({
-                          id: activity.id,
-                          status: 'COMPLETED',
-                          completedAt: new Date().toISOString(),
-                        })}
-                      >
-                        <CheckCircle className="h-4 w-4 mr-1" />
-                        Complete
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )
-        })}
+      {/* Activities */}
+      <div className="space-y-2">
+        {filtered?.map((activity: any, i: number) => (
+          <motion.div
+            key={activity.id}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.03, duration: 0.25 }}
+          >
+            <div className="p-4 rounded-2xl bg-[#111111] border border-[#262626] flex items-center gap-4">
+              <div className="h-10 w-10 rounded-xl bg-[#4F8CFF]/10 flex items-center justify-center flex-shrink-0">
+                <Megaphone className="h-4 w-4 text-[#4F8CFF]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <p className="text-sm font-medium text-white">{activity.subject}</p>
+                  <span className={`px-2 py-0.5 rounded-lg text-[10px] font-medium ${statusColors[activity.status] || statusColors.PENDING}`}>
+                    {activity.status}
+                  </span>
+                </div>
+                <p className="text-xs text-[#52525B]">{activity.customer?.name} · {typeLabels[activity.activityType]}</p>
+              </div>
+              {activity.status === 'PENDING' && (
+                <button
+                  onClick={() => updateMutation.mutate({ id: activity.id, status: 'COMPLETED', completedAt: new Date().toISOString() })}
+                  className="px-3 py-1.5 rounded-lg bg-[#171717] border border-[#262626] text-xs text-[#A1A1AA] hover:text-[#22C55E] hover:border-[#22C55E]/30 transition-all flex items-center gap-1"
+                >
+                  <CheckCircle className="h-3 w-3" />
+                  Done
+                </button>
+              )}
+            </div>
+          </motion.div>
+        ))}
       </div>
 
       {filtered?.length === 0 && (
-        <div className="text-center py-12">
-          <Megaphone className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium">No activities found</h3>
-          <p className="text-muted-foreground">Add your first CRM activity</p>
+        <div className="text-center py-16">
+          <div className="h-12 w-12 rounded-2xl bg-[#171717] flex items-center justify-center mx-auto mb-4">
+            <Megaphone className="h-5 w-5 text-[#52525B]" />
+          </div>
+          <p className="text-sm text-[#A1A1AA]">No activities found</p>
+          <p className="text-xs text-[#52525B] mt-1">Add your first CRM activity</p>
         </div>
       )}
     </div>

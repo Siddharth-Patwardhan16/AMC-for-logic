@@ -2,244 +2,123 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Plus, Search, Building2, Pencil, Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Search, Building2, Pencil, Trash2, Check, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { trpc } from '@/components/providers'
 import { toast } from 'sonner'
 
 export default function SettingsPage() {
   const [search, setSearch] = useState('')
-  const [editingCompany, setEditingCompany] = useState<any>(null)
-  const [isCreateOpen, setIsCreateOpen] = useState(false)
-  const [formData, setFormData] = useState({
-    name: '',
-    gstin: '',
-    pan: '',
-    address: '',
-    city: '',
-    state: '',
-    pincode: '',
-    bankName: '',
-    bankAccount: '',
-    bankIfsc: '',
-    invoicePrefix: 'INV',
-    quotationPrefix: 'QOT',
-  })
+  const [editing, setEditing] = useState<string | null>(null)
+  const [form, setForm] = useState({ name: '', gstin: '', pan: '', address: '', city: '', state: '', pincode: '', bankName: '', bankAccount: '', bankIfsc: '', invoicePrefix: 'INV', quotationPrefix: 'QOT' })
 
   const { data: companies, refetch } = trpc.company.list.useQuery()
-  const createMutation = trpc.company.create.useMutation({
-    onSuccess: () => {
-      toast.success('Company created successfully')
-      setIsCreateOpen(false)
-      refetch()
-      resetForm()
-    },
-    onError: (err) => toast.error(err.message),
-  })
-  const updateMutation = trpc.company.update.useMutation({
-    onSuccess: () => {
-      toast.success('Company updated successfully')
-      setEditingCompany(null)
-      refetch()
-    },
-    onError: (err) => toast.error(err.message),
-  })
-  const deleteMutation = trpc.company.delete.useMutation({
-    onSuccess: () => {
-      toast.success('Company deleted')
-      refetch()
-    },
-    onError: (err) => toast.error(err.message),
-  })
+  const create = trpc.company.create.useMutation({ onSuccess: () => { toast.success('Created'); refetch(); setEditing(null); } })
+  const update = trpc.company.update.useMutation({ onSuccess: () => { toast.success('Updated'); refetch(); setEditing(null); } })
+  const del = trpc.company.delete.useMutation({ onSuccess: () => { toast.success('Deleted'); refetch(); } })
 
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      gstin: '',
-      pan: '',
-      address: '',
-      city: '',
-      state: '',
-      pincode: '',
-      bankName: '',
-      bankAccount: '',
-      bankIfsc: '',
-      invoicePrefix: 'INV',
-      quotationPrefix: 'QOT',
-    })
+  const filtered = companies?.filter((c: any) => c.name.toLowerCase().includes(search.toLowerCase()))
+
+  const startEdit = (c: any) => {
+    setEditing(c.id)
+    setForm({ name: c.name, gstin: c.gstin || '', pan: c.pan || '', address: c.address || '', city: c.city || '', state: c.state || '', pincode: c.pincode || '', bankName: c.bankName || '', bankAccount: c.bankAccount || '', bankIfsc: c.bankIfsc || '', invoicePrefix: c.invoicePrefix, quotationPrefix: c.quotationPrefix })
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (editingCompany) {
-      updateMutation.mutate({ id: editingCompany.id, ...formData })
-    } else {
-      createMutation.mutate(formData)
-    }
+  const startCreate = () => {
+    setEditing('new')
+    setForm({ name: '', gstin: '', pan: '', address: '', city: '', state: '', pincode: '', bankName: '', bankAccount: '', bankIfsc: '', invoicePrefix: 'INV', quotationPrefix: 'QOT' })
   }
 
-  const startEdit = (company: any) => {
-    setEditingCompany(company)
-    setFormData({
-      name: company.name,
-      gstin: company.gstin || '',
-      pan: company.pan || '',
-      address: company.address || '',
-      city: company.city || '',
-      state: company.state || '',
-      pincode: company.pincode || '',
-      bankName: company.bankName || '',
-      bankAccount: company.bankAccount || '',
-      bankIfsc: company.bankIfsc || '',
-      invoicePrefix: company.invoicePrefix,
-      quotationPrefix: company.quotationPrefix,
-    })
+  const save = () => {
+    if (editing === 'new') create.mutate(form as any)
+    else if (editing) update.mutate({ id: editing, ...form } as any)
   }
-
-  const filteredCompanies = companies?.filter(c => 
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.gstin?.toLowerCase().includes(search.toLowerCase())
-  )
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-5 lg:p-8 max-w-[800px] mx-auto">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-          <p className="text-muted-foreground mt-1">Manage companies, users, and system configuration</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Settings</h1>
+          <p className="text-sm text-[#A1A1AA] mt-1">Companies & configuration</p>
         </div>
-        <Button onClick={() => { resetForm(); setIsCreateOpen(true); }}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Company
-        </Button>
+        <button onClick={startCreate} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#4F8CFF] hover:bg-[#4F8CFF]/90 text-white text-sm font-medium transition-all active:scale-[0.98]">
+          + Company
+        </button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Companies</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search companies..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
+      <div className="relative mb-6">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#52525B]" />
+        <Input placeholder="Search companies..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
+      </div>
 
-          <div className="space-y-3">
-            {filteredCompanies?.map((company) => (
-              <motion.div
-                key={company.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Building2 className="h-5 w-5 text-primary" />
+      <div className="space-y-3">
+        {filtered?.map((company: any) => (
+          <motion.div key={company.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 rounded-2xl bg-[#111111] border border-[#262626]">
+            {editing === company.id ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Input placeholder="Company Name" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} />
+                  <Input placeholder="GSTIN" value={form.gstin} onChange={(e) => setForm({...form, gstin: e.target.value})} />
+                  <Input placeholder="PAN" value={form.pan} onChange={(e) => setForm({...form, pan: e.target.value})} />
+                  <Input placeholder="City" value={form.city} onChange={(e) => setForm({...form, city: e.target.value})} />
+                  <Input placeholder="State" value={form.state} onChange={(e) => setForm({...form, state: e.target.value})} />
+                  <Input placeholder="Pincode" value={form.pincode} onChange={(e) => setForm({...form, pincode: e.target.value})} />
+                  <Input placeholder="Bank Name" value={form.bankName} onChange={(e) => setForm({...form, bankName: e.target.value})} />
+                  <Input placeholder="Account No" value={form.bankAccount} onChange={(e) => setForm({...form, bankAccount: e.target.value})} />
+                  <Input placeholder="IFSC" value={form.bankIfsc} onChange={(e) => setForm({...form, bankIfsc: e.target.value})} />
+                  <Input placeholder="Invoice Prefix" value={form.invoicePrefix} onChange={(e) => setForm({...form, invoicePrefix: e.target.value})} />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => setEditing(null)} className="px-3 py-1.5 rounded-lg text-xs text-[#A1A1AA] hover:text-white">Cancel</button>
+                  <button onClick={save} className="px-3 py-1.5 rounded-lg bg-[#22C55E] text-white text-xs font-medium">Save</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-[#4F8CFF]/10 flex items-center justify-center">
+                    <Building2 className="h-4 w-4 text-[#4F8CFF]" />
                   </div>
                   <div>
-                    <p className="font-medium">{company.name}</p>
-                    <p className="text-sm text-muted-foreground">{company.gstin || 'No GSTIN'}</p>
+                    <p className="text-sm font-medium text-white">{company.name}</p>
+                    <p className="text-xs text-[#52525B]">{company.gstin || 'No GSTIN'} · {company.city || 'No city'}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={company.isActive ? 'success' : 'secondary'}>
-                    {company.isActive ? 'Active' : 'Inactive'}
-                  </Badge>
-                  <Button variant="ghost" size="icon" onClick={() => startEdit(company)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate({ id: company.id })}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <button onClick={() => startEdit(company)} className="p-2 rounded-lg hover:bg-[#171717] text-[#A1A1AA] hover:text-white transition-colors">
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button onClick={() => del.mutate({ id: company.id })} className="p-2 rounded-lg hover:bg-[#171717] text-[#A1A1AA] hover:text-[#EF4444] transition-colors">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
-              </motion.div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              </div>
+            )}
+          </motion.div>
+        ))}
+      </div>
 
-      {/* Create/Edit Dialog */}
-      <Dialog open={isCreateOpen || !!editingCompany} onOpenChange={(open) => {
-        if (!open) { setIsCreateOpen(false); setEditingCompany(null); }
-      }}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingCompany ? 'Edit Company' : 'Add Company'}</DialogTitle>
-            <DialogDescription>
-              Configure company details for billing and document generation.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <label className="text-sm font-medium">Company Name</label>
-                <Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
-              </div>
-              <div>
-                <label className="text-sm font-medium">GSTIN</label>
-                <Input value={formData.gstin} onChange={e => setFormData({...formData, gstin: e.target.value})} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">PAN</label>
-                <Input value={formData.pan} onChange={e => setFormData({...formData, pan: e.target.value})} />
-              </div>
-              <div className="col-span-2">
-                <label className="text-sm font-medium">Address</label>
-                <Input value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">City</label>
-                <Input value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">State</label>
-                <Input value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Pincode</label>
-                <Input value={formData.pincode} onChange={e => setFormData({...formData, pincode: e.target.value})} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Bank Name</label>
-                <Input value={formData.bankName} onChange={e => setFormData({...formData, bankName: e.target.value})} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Account Number</label>
-                <Input value={formData.bankAccount} onChange={e => setFormData({...formData, bankAccount: e.target.value})} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">IFSC Code</label>
-                <Input value={formData.bankIfsc} onChange={e => setFormData({...formData, bankIfsc: e.target.value})} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Invoice Prefix</label>
-                <Input value={formData.invoicePrefix} onChange={e => setFormData({...formData, invoicePrefix: e.target.value})} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Quotation Prefix</label>
-                <Input value={formData.quotationPrefix} onChange={e => setFormData({...formData, quotationPrefix: e.target.value})} />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => { setIsCreateOpen(false); setEditingCompany(null); }}>
-                Cancel
-              </Button>
-              <Button type="submit">
-                {editingCompany ? 'Update' : 'Create'}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {editing === 'new' && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mt-3 p-4 rounded-2xl bg-[#111111] border border-[#262626]">
+          <p className="text-sm font-medium text-white mb-3">New Company</p>
+          <div className="grid grid-cols-2 gap-3">
+            <Input placeholder="Company Name *" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} />
+            <Input placeholder="GSTIN" value={form.gstin} onChange={(e) => setForm({...form, gstin: e.target.value})} />
+            <Input placeholder="PAN" value={form.pan} onChange={(e) => setForm({...form, pan: e.target.value})} />
+            <Input placeholder="City" value={form.city} onChange={(e) => setForm({...form, city: e.target.value})} />
+            <Input placeholder="State" value={form.state} onChange={(e) => setForm({...form, state: e.target.value})} />
+            <Input placeholder="Pincode" value={form.pincode} onChange={(e) => setForm({...form, pincode: e.target.value})} />
+            <Input placeholder="Bank Name" value={form.bankName} onChange={(e) => setForm({...form, bankName: e.target.value})} />
+            <Input placeholder="Account No" value={form.bankAccount} onChange={(e) => setForm({...form, bankAccount: e.target.value})} />
+            <Input placeholder="IFSC" value={form.bankIfsc} onChange={(e) => setForm({...form, bankIfsc: e.target.value})} />
+            <Input placeholder="Invoice Prefix" value={form.invoicePrefix} onChange={(e) => setForm({...form, invoicePrefix: e.target.value})} />
+          </div>
+          <div className="flex justify-end gap-2 mt-3">
+            <button onClick={() => setEditing(null)} className="px-3 py-1.5 rounded-lg text-xs text-[#A1A1AA] hover:text-white">Cancel</button>
+            <button onClick={save} className="px-3 py-1.5 rounded-lg bg-[#22C55E] text-white text-xs font-medium">Create</button>
+          </div>
+        </motion.div>
+      )}
     </div>
   )
 }

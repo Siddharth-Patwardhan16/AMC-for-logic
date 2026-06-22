@@ -1,134 +1,70 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { signIn } from 'next-auth/react'
 import { motion } from 'framer-motion'
 import { Building2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
-const authErrorMessages: Record<string, string> = {
-  Configuration: 'Server auth is not configured. Set NEXTAUTH_SECRET in your Netlify environment variables.',
-  CredentialsSignin: 'Invalid email or password',
-  AccessDenied: 'Access denied',
-}
-
-function LoginForm() {
+export default function LoginPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    const authError = searchParams.get('error')
-    if (authError) {
-      setError(authErrorMessages[authError] ?? 'Unable to sign in. Please try again.')
-    }
-  }, [searchParams])
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
-    
-    const result = await signIn('credentials', {
-      email,
-      password,
-      redirect: false,
-    })
-    
-    if (result?.error) {
-      setError(authErrorMessages[result.error] ?? 'Invalid email or password')
-      setLoading(false)
-    } else {
-      router.push('/dashboard')
-      router.refresh()
-    }
+    const result = await signIn('credentials', { email, password, redirect: false })
+    if (result?.error) { setError('Invalid email or password'); setLoading(false) }
+    else { router.push('/'); router.refresh() }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
-      >
-        <div className="flex items-center justify-center mb-8">
-          <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mr-3">
-            <Building2 className="h-6 w-6 text-primary" />
+    <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A] p-4">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="w-full max-w-[380px]">
+        <div className="flex items-center justify-center mb-10">
+          <div className="h-10 w-10 rounded-xl bg-[#4F8CFF]/10 flex items-center justify-center mr-3">
+            <div className="h-4 w-4 rounded-sm bg-[#4F8CFF]" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">AMC ERP</h1>
-            <p className="text-sm text-muted-foreground">IT Service Management Platform</p>
+            <h1 className="text-xl font-bold text-white">AMC</h1>
+            <p className="text-xs text-[#52525B]">IT Service Management</p>
           </div>
         </div>
 
-        <Card className="border-0 shadow-2xl bg-card/50 backdrop-blur-xl">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl">Welcome back</CardTitle>
-            <CardDescription>Enter your credentials to access your account</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm"
-                >
-                  {error}
-                </motion.div>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="admin@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Sign In
-              </Button>
-            </form>
-            
-            <div className="mt-6 p-4 rounded-lg bg-muted/50 text-sm text-muted-foreground">
-              <p className="font-medium text-foreground mb-2">Demo Credentials:</p>
-              <p>Email: admin@example.com</p>
-              <p>Password: admin123</p>
+        <div className="p-6 rounded-2xl bg-[#111111] border border-[#262626]">
+          <p className="text-sm text-[#A1A1AA] mb-6">Sign in to your account</p>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="p-3 rounded-xl bg-[#EF4444]/10 text-[#EF4444] text-xs">
+                {error}
+              </motion.div>
+            )}
+            <div>
+              <label className="text-xs text-[#A1A1AA] mb-1.5 block">Email</label>
+              <Input type="email" placeholder="admin@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <label className="text-xs text-[#A1A1AA] mb-1.5 block">Password</label>
+              <Input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            </div>
+            <Button type="submit" className="w-full h-10 rounded-xl" disabled={loading}>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Sign In
+            </Button>
+          </form>
+
+          <div className="mt-5 p-3 rounded-xl bg-[#171717]/50 text-[11px] text-[#52525B]">
+            <p className="text-[#A1A1AA] mb-1 font-medium">Demo Credentials</p>
+            <p>admin@example.com / admin123</p>
+          </div>
+        </div>
       </motion.div>
     </div>
-  )
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense>
-      <LoginForm />
-    </Suspense>
   )
 }
