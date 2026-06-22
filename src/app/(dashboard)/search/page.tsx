@@ -1,14 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Search, ArrowRight, Users, HardDrive, Receipt, FileText } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 
-// This is a simplified search page - in production it would use a proper search endpoint
-export default function SearchPage() {
+function SearchContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const query = searchParams.get('q') || ''
@@ -99,6 +98,9 @@ export default function SearchPage() {
               { label: 'Engineers', href: '/engineers' },
               { label: 'Implementations', href: '/implementations' },
               { label: 'Documents', href: '/documents' },
+              { label: 'Materials', href: '/materials' },
+              { label: 'CRM', href: '/crm' },
+              { label: 'Reports', href: '/reports' },
               { label: 'Settings', href: '/settings' },
             ].map((item) => (
               <Link key={item.href} href={item.href}>
@@ -112,5 +114,13 @@ export default function SearchPage() {
         </div>
       </motion.div>
     </div>
+  )
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense>
+      <SearchContent />
+    </Suspense>
   )
 }

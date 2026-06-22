@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth/next'
+import { authOptions } from '@/lib/auth-options'
 import { MinimalSidebar } from '@/components/layout/minimal-sidebar'
 import { TopBar } from '@/components/layout/top-bar'
 
@@ -9,7 +10,13 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const session = await getServerSession()
+  let session = null
+  try {
+    session = await getServerSession(authOptions)
+  } catch (error) {
+    console.error('Dashboard session error:', error)
+  }
+
   if (!session) {
     redirect('/login')
   }
