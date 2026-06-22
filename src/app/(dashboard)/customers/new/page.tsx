@@ -10,6 +10,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { trpc } from '@/components/providers'
 import { parseAmcWorkbook, type AmcImportRow } from '@/lib/amc-excel-parser'
+import { emptyAmcRowDefaults } from '@/lib/amc-import-schema'
+import {
+  AmcBillingFields,
+  hasAmcBillingData,
+  type AmcBillingFormValues,
+} from '@/components/customers/amc-billing-fields'
 import { useCompany } from '@/components/company/company-context'
 
 type Tab = 'manual' | 'import'
@@ -33,7 +39,9 @@ export default function NewCustomerPage() {
     contactPhone: '',
     status: 'ACTIVE',
     companyId: '',
+    amcCompanyLabel: '',
   })
+  const [amcBilling, setAmcBilling] = useState<AmcBillingFormValues>(emptyAmcRowDefaults())
 
   const { companyFilter } = useCompany()
   const { data: companies } = trpc.company.list.useQuery()
@@ -96,6 +104,9 @@ export default function NewCustomerPage() {
         phone: form.contactPhone || undefined,
         isPrimary: true,
       }] : [],
+      amcBilling: hasAmcBillingData(amcBilling) ? amcBilling : undefined,
+      amcCompanyLabel: form.amcCompanyLabel || undefined,
+      amcLocation: form.locationName || form.city || undefined,
     })
   }
 
@@ -128,7 +139,7 @@ export default function NewCustomerPage() {
   }
 
   return (
-    <div className="p-5 lg:p-8 max-w-[900px] mx-auto">
+    <div className="p-5 lg:p-8 max-w-[1100px] mx-auto">
       <Link
         href="/customers"
         className="inline-flex items-center gap-1.5 text-sm text-[#A1A1AA] hover:text-white transition-colors mb-6"
@@ -240,6 +251,14 @@ export default function NewCustomerPage() {
             </div>
           </div>
 
+          <AmcBillingFields
+            values={amcBilling}
+            onChange={setAmcBilling}
+            companyLabel={form.amcCompanyLabel}
+            onCompanyLabelChange={(v) => setForm((f) => ({ ...f, amcCompanyLabel: v }))}
+            showCompanyField
+          />
+
           <div className="p-6 rounded-2xl bg-[#111111] border border-[#262626] space-y-4">
             <h2 className="text-sm font-semibold text-white">Primary Contact (optional)</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -273,7 +292,7 @@ export default function NewCustomerPage() {
               <div className="flex-1">
                 <h2 className="text-sm font-semibold text-white">AMC Working 26-27 format</h2>
                 <p className="text-xs text-[#A1A1AA] mt-1">
-                  Upload your Excel file with columns: Name, Company, Location, Server/Thin client/Laptop counts, and yearly billing amounts.
+                  Upload your AMC Working 26-27 Excel file. All columns match manual entry: Server, Thin Client, Laptop+Desktop rates/qty, and quarterly amounts.
                 </p>
                 <p className="text-xs text-[#52525B] mt-2">
                   Template bundled at <code className="text-[#A1A1AA]">prisma/data/amc-working-26-27.xlsx</code>
@@ -320,9 +339,13 @@ export default function NewCustomerPage() {
                 <table className="w-full text-xs">
                   <thead className="bg-[#0A0A0A] text-[#52525B] uppercase tracking-wide">
                     <tr>
+                      <th className="text-left p-3">#</th>
                       <th className="text-left p-3">Name</th>
+                      <th className="text-left p-3">Company</th>
                       <th className="text-left p-3">Location</th>
                       <th className="text-left p-3">Section</th>
+                      <th className="text-right p-3">Server</th>
+                      <th className="text-right p-3">Laptop</th>
                       <th className="text-right p-3">Q1</th>
                       <th className="text-right p-3">Q2</th>
                       <th className="text-right p-3">Q3</th>
@@ -333,9 +356,13 @@ export default function NewCustomerPage() {
                   <tbody>
                     {previewRows.slice(0, 50).map((row, i) => (
                       <tr key={`${row.name}-${i}`} className="border-t border-[#262626]">
+                        <td className="p-3 text-[#52525B]">{row.srNo ?? '—'}</td>
                         <td className="p-3 text-white">{row.name}</td>
+                        <td className="p-3 text-[#A1A1AA]">{row.companyLabel}</td>
                         <td className="p-3 text-[#A1A1AA]">{row.location}</td>
                         <td className="p-3 text-[#A1A1AA]">{row.section}</td>
+                        <td className="p-3 text-right text-[#A1A1AA]">{row.serverQtyQ1 || '—'}</td>
+                        <td className="p-3 text-right text-[#A1A1AA]">{row.laptopDesktopQtyQ1 || '—'}</td>
                         <td className="p-3 text-right text-[#A1A1AA]">₹{row.amountQ1.toLocaleString()}</td>
                         <td className="p-3 text-right text-[#A1A1AA]">₹{row.amountQ2.toLocaleString()}</td>
                         <td className="p-3 text-right text-[#A1A1AA]">₹{row.amountQ3.toLocaleString()}</td>

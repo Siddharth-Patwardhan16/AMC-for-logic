@@ -1,45 +1,9 @@
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { protectedProcedure, router } from '../context'
-import { buildAmcNotes, filterImportableRows, resolveCompanyId } from '@/lib/amc-excel-parser'
-import { createAmcScheduleFromRow } from '@/lib/amc-schedule-import'
-import { randomUUID } from 'crypto'
-
-const amcImportRowSchema = z.object({
-  srNo: z.number().nullable().optional(),
-  name: z.string().min(1),
-  description: z.string().optional(),
-  companyLabel: z.string(),
-  location: z.string(),
-  serverRateYearly: z.number(),
-  serverRateQuarterly: z.number(),
-  sophosQuantity: z.number(),
-  sophosRateYearly: z.number(),
-  sophosRateQuarterly: z.number(),
-  serverQtyQ1: z.number(),
-  serverQtyQ2: z.number(),
-  serverQtyQ3: z.number(),
-  serverQtyQ4: z.number(),
-  thinClientRateYearly: z.number(),
-  thinClientRateQuarterly: z.number(),
-  thinClientQtyQ1: z.number(),
-  thinClientQtyQ2: z.number(),
-  thinClientQtyQ3: z.number(),
-  thinClientQtyQ4: z.number(),
-  laptopDesktopRateYearly: z.number(),
-  laptopDesktopRateQuarterly: z.number(),
-  laptopDesktopQtyQ1: z.number(),
-  laptopDesktopQtyQ2: z.number(),
-  laptopDesktopQtyQ3: z.number(),
-  laptopDesktopQtyQ4: z.number(),
-  amountQ1: z.number(),
-  amountQ2: z.number(),
-  amountQ3: z.number(),
-  amountQ4: z.number(),
-  quarterlyTotal: z.number(),
-  yearlyAmount: z.number(),
-  section: z.string().optional(),
-})
+import { filterImportableRows } from '@/lib/amc-excel-parser'
+import { amcImportRowSchema } from '@/lib/amc-import-schema'
+import { createCustomerFromAmcRow, resolveOrCreateCompanyId } from '@/lib/customer-amc-create'
 
 export const customerRouter = router({
   list: protectedProcedure
@@ -127,9 +91,44 @@ export const customerRouter = router({
         designation: z.string().optional(),
         isPrimary: z.boolean().default(false),
       })).default([]),
+      amcBilling: amcImportRowSchema
+        .omit({ name: true, companyLabel: true, location: true })
+        .optional(),
+      amcCompanyLabel: z.string().optional(),
+      amcLocation: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const { locations, contactPersons, ...data } = input
+      const {
+        locations,
+        contactPersons,
+        amcBilling,
+        amcCompanyLabel,
+        amcLocation,
+        ...data
+      } = input
+
+      if (amcBilling) {
+        const companies = await ctx.prisma.company.findMany({ where: { isActive: true } })
+        const companyLabel = amcCompanyLabel ?? companies.find((c) => c.id === data.companyId)?.name ?? 'Logic'
+        const location = amcLocation ?? locations[0]?.name ?? locations[0]?.city ?? 'Head Office'
+
+        return createCustomerFromAmcRow(ctx.prisma, {
+          row: {
+            name: data.name,
+            companyLabel,
+            location,
+            ...amcBilling,
+            srNo: amcBilling.srNo ?? null,
+          },
+          companyId: data.companyId,
+          industry: data.industry,
+          gst: data.gst,
+          pan: data.pan,
+          billingAddress: data.billingAddress,
+          contactPersons,
+        })
+      }
+
       return ctx.prisma.customer.create({
         data: {
           ...data,
@@ -169,28 +168,14 @@ export const customerRouter = router({
       }
 
       const defaultCompanyId = input.defaultCompanyId ?? companies[0].id
-      const fyStart = new Date('2026-04-01')
-      const fyEnd = new Date('2027-03-31')
 
       let created = 0
       let skipped = 0
       const errors: string[] = []
 
-      const resolveOrCreateCompanyId = async (label: string) => {
-        const resolved = resolveCompanyId(label, companies)
-        if (resolved) return resolved
-
-        const name = label.trim() || 'Imported'
-        const createdCompany = await ctx.prisma.company.create({
-          data: { name, isActive: true },
-        })
-        companies.push(createdCompany)
-        return createdCompany.id
-      }
-
       for (const row of rows) {
         try {
-          const companyId = await resolveOrCreateCompanyId(row.companyLabel || '') || defaultCompanyId
+          const companyId = await resolveOrCreateCompanyId(ctx.prisma, row.companyLabel || '', companies) || defaultCompanyId
 
           if (input.skipExisting) {
             const existing = await ctx.prisma.customer.findFirst({
@@ -205,47 +190,9 @@ export const customerRouter = router({
             }
           }
 
-          const contractValue = row.yearlyAmount > 0 ? row.yearlyAmount : row.quarterlyTotal * 4
-          const contractNumber = `AMC-26-27-${randomUUID().slice(0, 8)}`
-
-          await ctx.prisma.$transaction(async (tx) => {
-            const customer = await tx.customer.create({
-              data: {
-                name: row.name.trim(),
-                status: 'ACTIVE',
-                notes: buildAmcNotes({ ...row, srNo: row.srNo ?? null }),
-                tags: ['amc-import', row.section?.toLowerCase().replace(/\s+/g, '-') ?? 'q1'],
-                companyId,
-                locations: {
-                  create: [{
-                    name: row.location || 'Head Office',
-                    city: row.location,
-                    isHeadOffice: true,
-                  }],
-                },
-                contracts: contractValue > 0 ? {
-                  create: [{
-                    contractNumber,
-                    contractType: 'YEARLY_AMC',
-                    status: 'ACTIVE',
-                    startDate: fyStart,
-                    endDate: fyEnd,
-                    value: contractValue,
-                    billingFrequency: 'QUARTERLY',
-                    companyId,
-                  }],
-                } : undefined,
-              },
-              include: { contracts: true },
-            })
-
-            const contractId = customer.contracts[0]?.id
-            await createAmcScheduleFromRow(tx, {
-              customerId: customer.id,
-              companyId,
-              contractId,
-              row: { ...row, srNo: row.srNo ?? null },
-            })
+          await createCustomerFromAmcRow(ctx.prisma, {
+            row: { ...row, srNo: row.srNo ?? null },
+            companyId,
           })
 
           created++

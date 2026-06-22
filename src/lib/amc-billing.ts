@@ -1,4 +1,4 @@
-import type { AmcImportRow } from './amc-excel-parser'
+import type { AmcImportRow } from './amc-import-schema'
 
 export const FISCAL_YEAR_26_27 = '2026-27'
 

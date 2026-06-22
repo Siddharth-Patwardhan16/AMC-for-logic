@@ -1,5 +1,5 @@
 import type { PrismaClient } from '@prisma/client'
-import type { AmcImportRow } from './amc-excel-parser'
+import type { AmcImportRow } from './amc-import-schema'
 import {
   FISCAL_YEAR_26_27,
   hasQuarterlyAmounts,
