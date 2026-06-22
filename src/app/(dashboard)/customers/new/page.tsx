@@ -46,11 +46,19 @@ export default function NewCustomerPage() {
   })
   const importMutation = trpc.customer.importAmcSpreadsheet.useMutation({
     onSuccess: (result) => {
-      toast.success(`Imported ${result.created} customers (${result.skipped} skipped)`)
-      if (result.errors.length) {
-        toast.error(`${result.errors.length} rows failed`)
+      if (result.created > 0) {
+        toast.success(`Imported ${result.created} customers (${result.skipped} skipped)`)
+      } else if (result.skipped > 0) {
+        toast.info(`All ${result.skipped} customers already exist — nothing new imported`)
+      } else {
+        toast.error('No customers were imported')
       }
-      router.push('/customers')
+      if (result.errors.length) {
+        toast.error(result.errors.slice(0, 3).join('; '))
+      }
+      if (result.created > 0) {
+        router.push('/customers')
+      }
     },
     onError: (err) => toast.error(err.message),
   })

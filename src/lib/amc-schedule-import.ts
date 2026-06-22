@@ -10,6 +10,8 @@ import {
   ensureDefaultCategories,
 } from './amc-schedule-sync'
 
+type DbClient = Pick<PrismaClient, 'amcSchedule' | 'amcCategory'>
+
 type CreateScheduleParams = {
   customerId: string
   companyId: string
@@ -18,7 +20,7 @@ type CreateScheduleParams = {
 }
 
 export async function createAmcScheduleFromRow(
-  prisma: PrismaClient,
+  prisma: DbClient,
   { customerId, companyId, contractId, row }: CreateScheduleParams
 ) {
   await ensureDefaultCategories(prisma, companyId)

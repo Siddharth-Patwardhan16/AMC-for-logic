@@ -6,7 +6,7 @@ import {
   type LineItemInput,
 } from './amc-billing'
 
-export async function ensureDefaultCategories(prisma: PrismaClient, companyId: string) {
+export async function ensureDefaultCategories(prisma: Pick<PrismaClient, 'amcCategory'>, companyId: string) {
   const defaults = [
     { name: 'Server', defaultIncludeInEmi: false },
     { name: 'Thin Client', defaultIncludeInEmi: true },

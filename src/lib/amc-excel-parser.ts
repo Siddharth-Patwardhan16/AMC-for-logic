@@ -43,6 +43,60 @@ const SECTION_MARKERS = [
   'logic systems',
 ]
 
+const HEADER_LABELS = new Set([
+  'name',
+  'sr.no',
+  'sr no',
+  'srno',
+  'description',
+  'company',
+  'location',
+  'rate yearly',
+  'rate qurterly',
+  'rate quarterly',
+])
+
+function isHeaderOrTemplateRow(row: unknown[], name: string): boolean {
+  const normalizedName = name.toLowerCase().trim()
+  if (HEADER_LABELS.has(normalizedName)) return true
+
+  const col0 = toText(row[0]).toLowerCase().replace(/\./g, '')
+  if (col0 === 'srno' || col0 === 'sr') return true
+
+  const companyCol = toText(row[3]).toLowerCase()
+  const locationCol = toText(row[4]).toLowerCase()
+  if (normalizedName === 'name' && companyCol === 'company') return true
+  if (companyCol === 'company' && locationCol === 'location') return true
+
+  return false
+}
+
+/** True when row has real billing or asset data (not an empty template line). */
+export function isImportableDataRow(row: AmcImportRow): boolean {
+  if (isHeaderOrTemplateRow([], row.name)) return false
+
+  const hasBilling =
+    row.yearlyAmount > 0 ||
+    row.quarterlyTotal > 0 ||
+    row.amountQ1 + row.amountQ2 + row.amountQ3 + row.amountQ4 > 0
+
+  const hasAssets =
+    row.serverQtyQ1 + row.serverQtyQ2 + row.serverQtyQ3 + row.serverQtyQ4 +
+    row.thinClientQtyQ1 + row.thinClientQtyQ2 + row.thinClientQtyQ3 + row.thinClientQtyQ4 +
+    row.laptopDesktopQtyQ1 + row.laptopDesktopQtyQ2 + row.laptopDesktopQtyQ3 + row.laptopDesktopQtyQ4 > 0
+
+  const hasRates =
+    row.serverRateYearly > 0 ||
+    row.thinClientRateYearly > 0 ||
+    row.laptopDesktopRateYearly > 0
+
+  return hasBilling || hasAssets || hasRates
+}
+
+export function filterImportableRows(rows: AmcImportRow[]): AmcImportRow[] {
+  return rows.filter(isImportableDataRow)
+}
+
 function toNumber(value: unknown): number {
   if (value === null || value === undefined || value === '') return 0
   const num = Number(value)
@@ -87,7 +141,7 @@ function parseSophos(row: unknown[]): {
 
 function parseSheetRow(row: unknown[], currentSection: string): AmcImportRow | null {
   const name = toText(row[1])
-  if (!name || isSectionHeader(name)) return null
+  if (!name || isSectionHeader(name) || isHeaderOrTemplateRow(row, name)) return null
 
   const companyLabel = toText(row[3])
   const location = toText(row[4])
@@ -171,7 +225,7 @@ export function parseAmcWorkbook(buffer: ArrayBuffer): AmcImportRow[] {
     if (record) parsed.push(record)
   }
 
-  return parsed
+  return parsed.filter(isImportableDataRow)
 }
 
 export function buildAmcNotes(row: AmcImportRow): string {
@@ -210,6 +264,10 @@ export function resolveCompanyId(
 
   if (normalized.includes('logic')) {
     return companies.find((c) => c.name.toLowerCase().includes('logic'))?.id ?? companies[0].id
+  }
+
+  if (normalized.includes('computerwala') || normalized.includes('computer wala')) {
+    return companies.find((c) => c.name.toLowerCase().includes('computerwala'))?.id ?? null
   }
 
   return companies[0].id
