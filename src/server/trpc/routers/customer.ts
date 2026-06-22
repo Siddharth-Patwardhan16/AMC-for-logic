@@ -60,6 +60,7 @@ export const customerRouter = router({
       return ctx.prisma.customer.findMany({
         where,
         include: {
+          company: { select: { id: true, name: true } },
           locations: true,
           contactPersons: true,
           _count: { select: { assets: true, contracts: true, tickets: true } },
@@ -74,12 +75,14 @@ export const customerRouter = router({
       return ctx.prisma.customer.findUnique({
         where: { id: input.id },
         include: {
+          company: { select: { id: true, name: true } },
           locations: true,
           contactPersons: true,
           assets: { include: { customerLocation: true } },
           contracts: { include: { billings: true } },
           amcSchedules: {
             include: {
+              company: { select: { id: true, name: true } },
               lineItems: { include: { addons: true } },
               installments: { include: { payments: true }, orderBy: { quarter: 'asc' } },
             },

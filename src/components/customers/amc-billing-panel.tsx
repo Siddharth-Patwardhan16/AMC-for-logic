@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/components/providers'
 import { categoryLabel, formatCurrency } from '@/lib/amc-billing'
+import { CompanyBadge } from '@/components/company/company-selector'
 
 type Schedule = {
   id: string
@@ -21,6 +22,7 @@ type Schedule = {
   amountQ2: unknown
   amountQ3: unknown
   amountQ4: unknown
+  company?: { id: string; name: string } | null
   lineItems: {
     id: string
     categoryName: string
@@ -290,10 +292,11 @@ function ScheduleCard({
       <div className="px-5 py-4 bg-[#111111] border-b border-[#262626] flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-white">FY {schedule.fiscalYear}</h3>
-          <p className="text-xs text-[#52525B] mt-0.5">
-            {schedule.section ?? 'AMC'} · Yearly {formatCurrency(Number(schedule.yearlyAmount))}
-            {schedule.enableQuarterlySplit && ' · 4 quarterly EMIs'}
-          </p>
+                <p className="text-xs text-[#52525B] mt-0.5 flex flex-wrap items-center gap-2">
+                  <span>{schedule.section ?? 'AMC'} · Yearly {formatCurrency(Number(schedule.yearlyAmount))}</span>
+                  {schedule.company?.name && <CompanyBadge name={schedule.company.name} />}
+                  {schedule.enableQuarterlySplit && <span>· 4 quarterly EMIs</span>}
+                </p>
         </div>
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-2 text-xs text-[#A1A1AA] cursor-pointer">

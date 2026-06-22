@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { trpc } from '@/components/providers'
 import { parseAmcWorkbook, type AmcImportRow } from '@/lib/amc-excel-parser'
+import { useCompany } from '@/components/company/company-context'
 
 type Tab = 'manual' | 'import'
 
@@ -34,6 +35,7 @@ export default function NewCustomerPage() {
     companyId: '',
   })
 
+  const { companyFilter } = useCompany()
   const { data: companies } = trpc.company.list.useQuery()
   const createMutation = trpc.customer.create.useMutation({
     onSuccess: (customer) => {
@@ -53,7 +55,7 @@ export default function NewCustomerPage() {
     onError: (err) => toast.error(err.message),
   })
 
-  const selectedCompanyId = form.companyId || companies?.[0]?.id || ''
+  const selectedCompanyId = form.companyId || companyFilter || companies?.[0]?.id || ''
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault()

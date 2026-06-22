@@ -7,6 +7,7 @@ import { Plus, Search, Ticket, ArrowRight } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/components/providers'
+import { useCompany } from '@/components/company/company-context'
 
 const priorityColors: Record<string, string> = {
   LOW: 'text-[#A1A1AA] bg-[#171717]',
@@ -28,8 +29,10 @@ export default function TicketsPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [priority, setPriority] = useState('')
+  const { companyFilter } = useCompany()
 
   const { data: tickets } = trpc.ticket.list.useQuery({
+    companyId: companyFilter,
     status: status || undefined,
     priority: priority || undefined,
   })

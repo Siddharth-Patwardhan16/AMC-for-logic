@@ -7,6 +7,7 @@ import { Plus, Search, FileText, ArrowRight } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/components/providers'
+import { useCompany } from '@/components/company/company-context'
 
 const typeLabels: Record<string, string> = {
   QUARTERLY_AMC: 'Quarterly AMC',
@@ -28,8 +29,10 @@ export default function ContractsPage() {
   const [search, setSearch] = useState('')
   const [contractType, setContractType] = useState('')
   const [status, setStatus] = useState('')
+  const { companyFilter } = useCompany()
 
   const { data: contracts } = trpc.contract.list.useQuery({
+    companyId: companyFilter,
     contractType: contractType || undefined,
     status: status || undefined,
   })

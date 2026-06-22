@@ -4,8 +4,49 @@ import { protectedProcedure, router } from '../context'
 export const companyRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
     return ctx.prisma.company.findMany({
-      orderBy: { createdAt: 'desc' },
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
     })
+  }),
+
+  summary: protectedProcedure.query(async ({ ctx }) => {
+    const companies = await ctx.prisma.company.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+    })
+
+    return Promise.all(companies.map(async (company) => {
+      const [customers, activeContracts, openTickets, pendingInvoices] = await Promise.all([
+        ctx.prisma.customer.count({ where: { companyId: company.id } }),
+        ctx.prisma.contract.count({ where: { companyId: company.id, status: 'ACTIVE' } }),
+        ctx.prisma.ticket.count({
+          where: {
+            companyId: company.id,
+            status: { in: ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'WAITING'] },
+          },
+        }),
+        ctx.prisma.invoice.count({
+          where: {
+            companyId: company.id,
+            status: { in: ['SENT', 'PARTIAL', 'OVERDUE'] },
+          },
+        }),
+      ])
+
+      const revenue = await ctx.prisma.invoice.aggregate({
+        where: { companyId: company.id, status: 'PAID' },
+        _sum: { totalAmount: true },
+      })
+
+      return {
+        ...company,
+        customers,
+        activeContracts,
+        openTickets,
+        pendingInvoices,
+        totalRevenue: revenue._sum.totalAmount ?? 0,
+      }
+    }))
   }),
 
   get: protectedProcedure

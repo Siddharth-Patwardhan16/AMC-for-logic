@@ -6,6 +6,7 @@ import { Search, Package, Boxes } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/components/providers'
+import { useCompany } from '@/components/company/company-context'
 
 const categoryLabels: Record<string, string> = {
   SPARE_PART: 'Spare Part',
@@ -24,7 +25,9 @@ const statusColors: Record<string, string> = {
 
 export default function MaterialsPage() {
   const [search, setSearch] = useState('')
+  const { companyFilter } = useCompany()
   const { data: materials } = trpc.material.list.useQuery({
+    companyId: companyFilter,
     search: search || undefined,
   })
 

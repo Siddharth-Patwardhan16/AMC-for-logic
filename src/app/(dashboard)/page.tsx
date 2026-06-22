@@ -4,6 +4,8 @@ import { motion } from 'framer-motion'
 import { Users, HardDrive, FileText, AlertTriangle, ArrowUpRight, TrendingUp, Clock } from 'lucide-react'
 import { trpc } from '@/components/providers'
 import Link from 'next/link'
+import { useCompany } from '@/components/company/company-context'
+import { CompanyBadge } from '@/components/company/company-selector'
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } }
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }
@@ -27,7 +29,13 @@ function StatCard({ icon: Icon, label, value, subtext, color, delay }: any) {
 }
 
 export default function DashboardPage() {
-  const { data: stats } = trpc.dashboard.stats.useQuery()
+  const { companyFilter, isAllCompanies } = useCompany()
+  const { data: stats } = trpc.dashboard.stats.useQuery(
+    companyFilter ? { companyId: companyFilter } : undefined
+  )
+  const { data: companySummaries } = trpc.company.summary.useQuery(undefined, {
+    enabled: isAllCompanies,
+  })
 
   const statCards = [
     { icon: Users, value: stats?.totalCustomers || 0, label: 'Active Customers', color: 'bg-[#4F8CFF]/10 text-[#4F8CFF]', subtext: `${stats?.activeCustomers || 0} currently active` },
@@ -41,8 +49,40 @@ export default function DashboardPage() {
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight text-white">Overview</h1>
-        <p className="text-sm text-[#A1A1AA] mt-1">Your AMC business at a glance</p>
+        <p className="text-sm text-[#A1A1AA] mt-1">
+          {isAllCompanies ? 'All companies · use the top bar to filter one' : 'Filtered by selected company'}
+        </p>
       </motion.div>
+
+      {isAllCompanies && companySummaries && companySummaries.length > 1 && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+          <h2 className="text-sm font-semibold text-white mb-3">By company</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {companySummaries.map((co) => (
+              <div key={co.id} className="p-4 rounded-2xl bg-[#111111] border border-[#262626]">
+                <div className="flex items-center justify-between mb-3">
+                  <CompanyBadge name={co.name} />
+                  <span className="text-xs text-[#52525B]">{co.customers} customers</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <p className="text-lg font-bold text-white">{co.activeContracts}</p>
+                    <p className="text-[10px] text-[#52525B]">Contracts</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-white">{co.openTickets}</p>
+                    <p className="text-[10px] text-[#52525B]">Tickets</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-[#22C55E]">₹{Number(co.totalRevenue).toLocaleString()}</p>
+                    <p className="text-[10px] text-[#52525B]">Revenue</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Stats Grid */}
       <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

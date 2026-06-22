@@ -7,6 +7,7 @@ import { Plus, Search, HardDrive, ArrowRight } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/components/providers'
+import { useCompany } from '@/components/company/company-context'
 
 const typeColors: Record<string, string> = {
   SERVER: 'text-[#4F8CFF] bg-[#4F8CFF]/10',
@@ -29,8 +30,10 @@ export default function AssetsPage() {
   const [search, setSearch] = useState('')
   const [assetType, setAssetType] = useState('')
   const [status, setStatus] = useState('')
+  const { companyFilter } = useCompany()
 
   const { data: assets } = trpc.asset.list.useQuery({
+    companyId: companyFilter,
     assetType: assetType || undefined,
     status: status || undefined,
     search: search || undefined,

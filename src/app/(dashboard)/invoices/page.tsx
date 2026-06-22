@@ -7,6 +7,7 @@ import { Plus, Search, Receipt, ArrowRight } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/components/providers'
+import { useCompany } from '@/components/company/company-context'
 
 const statusColors: Record<string, string> = {
   DRAFT: 'text-[#A1A1AA] bg-[#171717]',
@@ -20,8 +21,10 @@ const statusColors: Record<string, string> = {
 export default function InvoicesPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
+  const { companyFilter } = useCompany()
 
   const { data: invoices } = trpc.invoice.list.useQuery({
+    companyId: companyFilter,
     status: status || undefined,
     search: search || undefined,
   })

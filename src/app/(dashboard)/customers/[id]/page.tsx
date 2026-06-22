@@ -24,6 +24,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/components/providers'
 import { AmcBillingPanel } from '@/components/customers/amc-billing-panel'
+import { CompanyBadge } from '@/components/company/company-selector'
 
 const statusConfig: Record<string, { color: string; bg: string; label: string }> = {
   ACTIVE: { color: 'text-[#22C55E]', bg: 'bg-[#22C55E]/10', label: 'Active' },
@@ -155,7 +156,12 @@ export default function CustomerDetailPage() {
                   {customer.status}
                 </Badge>
               </div>
-              <p className="text-sm text-[#A1A1AA] mt-0.5">{customer.industry || 'No industry'} · {customer.gst || 'No GST'}</p>
+              <p className="text-sm text-[#A1A1AA] mt-0.5 flex flex-wrap items-center gap-2">
+                <span>{customer.industry || 'No industry'} · {customer.gst || 'No GST'}</span>
+                {(customer as any).company?.name && (
+                  <CompanyBadge name={(customer as any).company.name} />
+                )}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">

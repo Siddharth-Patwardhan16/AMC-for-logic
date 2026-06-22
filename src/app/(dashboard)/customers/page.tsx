@@ -1,13 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Plus, Search, Users, ArrowRight, Building2 } from 'lucide-react'
+import { Plus, Search, Users, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/components/providers'
+import { useCompany } from '@/components/company/company-context'
+import { CompanyBadge, CompanySelector } from '@/components/company/company-selector'
 
 const statusColors: Record<string, string> = {
   LEAD: 'text-[#4F8CFF] bg-[#4F8CFF]/10',
@@ -18,25 +19,93 @@ const statusColors: Record<string, string> = {
   ARCHIVED: 'text-[#52525B] bg-[#171717]',
 }
 
+function CustomerCard({ customer, i }: { customer: any; i: number }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: i * 0.05, duration: 0.3 }}
+    >
+      <Link href={`/customers/${customer.id}`}>
+        <div className="p-5 rounded-2xl bg-[#111111] border border-[#262626] hover:border-[#333333] transition-all duration-300 group cursor-pointer">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-2xl bg-[#4F8CFF]/10 flex items-center justify-center text-[#4F8CFF] text-lg font-bold">
+                {customer.name.charAt(0)}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-white truncate">{customer.name}</p>
+                <p className="text-xs text-[#52525B]">{customer.industry || 'No industry'}</p>
+              </div>
+            </div>
+            <span className={`px-2 py-1 rounded-lg text-[10px] font-medium ${statusColors[customer.status] || statusColors.ACTIVE}`}>
+              {customer.status}
+            </span>
+          </div>
+
+          {customer.company?.name && (
+            <div className="mb-3">
+              <CompanyBadge name={customer.company.name} />
+            </div>
+          )}
+
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="p-2.5 rounded-xl bg-[#171717]/50">
+              <p className="text-lg font-bold text-white">{customer._count?.assets || 0}</p>
+              <p className="text-[10px] text-[#52525B] uppercase tracking-wide">Assets</p>
+            </div>
+            <div className="p-2.5 rounded-xl bg-[#171717]/50">
+              <p className="text-lg font-bold text-white">{customer._count?.contracts || 0}</p>
+              <p className="text-[10px] text-[#52525B] uppercase tracking-wide">Contracts</p>
+            </div>
+            <div className="p-2.5 rounded-xl bg-[#171717]/50">
+              <p className="text-lg font-bold text-white">{customer._count?.tickets || 0}</p>
+              <p className="text-[10px] text-[#52525B] uppercase tracking-wide">Tickets</p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-3 border-t border-[#262626]">
+            <p className="text-xs text-[#52525B]">{customer.gst || 'No GST'}</p>
+            <ArrowRight className="h-4 w-4 text-[#52525B] group-hover:text-[#4F8CFF] group-hover:translate-x-0.5 transition-all" />
+          </div>
+        </div>
+      </Link>
+    </motion.div>
+  )
+}
+
 export default function CustomersPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
-  const [companyId, setCompanyId] = useState('')
+  const { companyFilter, isAllCompanies } = useCompany()
 
-  const { data: companies } = trpc.company.list.useQuery()
   const { data: customers } = trpc.customer.list.useQuery({
-    companyId,
+    companyId: companyFilter,
     status: status || undefined,
     search: search || undefined,
   })
 
+  const groupedByCompany = useMemo(() => {
+    if (!isAllCompanies || !customers?.length) return null
+    const map = new Map<string, { companyName: string; customers: typeof customers }>()
+    for (const c of customers) {
+      const key = c.company?.id ?? 'unknown'
+      const name = c.company?.name ?? 'Unassigned'
+      if (!map.has(key)) map.set(key, { companyName: name, customers: [] })
+      map.get(key)!.customers.push(c)
+    }
+    return Array.from(map.values()).sort((a, b) => a.companyName.localeCompare(b.companyName))
+  }, [customers, isAllCompanies])
+
   return (
     <div className="p-5 lg:p-8 max-w-[1400px] mx-auto">
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Customers</h1>
-          <p className="text-sm text-[#A1A1AA] mt-1">{customers?.length || 0} total</p>
+          <p className="text-sm text-[#A1A1AA] mt-1">
+            {customers?.length || 0} total
+            {isAllCompanies ? ' · all companies' : ' · filtered by company'}
+          </p>
         </div>
         <Link href="/customers/new">
           <Button className="rounded-xl">
@@ -46,7 +115,6 @@ export default function CustomersPage() {
         </Link>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#52525B]" />
@@ -57,6 +125,7 @@ export default function CustomersPage() {
             className="pl-10"
           />
         </div>
+        <CompanySelector className="sm:hidden w-full" />
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
@@ -72,56 +141,29 @@ export default function CustomersPage() {
         </select>
       </div>
 
-      {/* Customer Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {customers?.map((customer, i) => (
-          <motion.div
-            key={customer.id}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05, duration: 0.3 }}
-          >
-            <Link href={`/customers/${customer.id}`}>
-              <div className="p-5 rounded-2xl bg-[#111111] border border-[#262626] hover:border-[#333333] transition-all duration-300 group cursor-pointer">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-11 w-11 rounded-2xl bg-[#4F8CFF]/10 flex items-center justify-center text-[#4F8CFF] text-lg font-bold">
-                      {customer.name.charAt(0)}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-white truncate">{customer.name}</p>
-                      <p className="text-xs text-[#52525B]">{customer.industry || 'No industry'}</p>
-                    </div>
-                  </div>
-                  <span className={`px-2 py-1 rounded-lg text-[10px] font-medium ${statusColors[customer.status] || statusColors.ACTIVE}`}>
-                    {customer.status}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 mb-4">
-                  <div className="p-2.5 rounded-xl bg-[#171717]/50">
-                    <p className="text-lg font-bold text-white">{customer._count?.assets || 0}</p>
-                    <p className="text-[10px] text-[#52525B] uppercase tracking-wide">Assets</p>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-[#171717]/50">
-                    <p className="text-lg font-bold text-white">{customer._count?.contracts || 0}</p>
-                    <p className="text-[10px] text-[#52525B] uppercase tracking-wide">Contracts</p>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-[#171717]/50">
-                    <p className="text-lg font-bold text-white">{customer._count?.tickets || 0}</p>
-                    <p className="text-[10px] text-[#52525B] uppercase tracking-wide">Tickets</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-3 border-t border-[#262626]">
-                  <p className="text-xs text-[#52525B]">{customer.gst || 'No GST'}</p>
-                  <ArrowRight className="h-4 w-4 text-[#52525B] group-hover:text-[#4F8CFF] group-hover:translate-x-0.5 transition-all" />
-                </div>
+      {groupedByCompany ? (
+        <div className="space-y-10">
+          {groupedByCompany.map((group) => (
+            <section key={group.companyName}>
+              <div className="flex items-center gap-3 mb-4">
+                <CompanyBadge name={group.companyName} />
+                <span className="text-xs text-[#52525B]">{group.customers.length} customers</span>
               </div>
-            </Link>
-          </motion.div>
-        ))}
-      </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {group.customers.map((customer, i) => (
+                  <CustomerCard key={customer.id} customer={customer} i={i} />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {customers?.map((customer, i) => (
+            <CustomerCard key={customer.id} customer={customer} i={i} />
+          ))}
+        </div>
+      )}
 
       {customers?.length === 0 && (
         <div className="text-center py-16">
@@ -129,7 +171,7 @@ export default function CustomersPage() {
             <Users className="h-5 w-5 text-[#52525B]" />
           </div>
           <p className="text-sm text-[#A1A1AA]">No customers found</p>
-          <p className="text-xs text-[#52525B] mt-1">Add your first customer to get started</p>
+          <p className="text-xs text-[#52525B] mt-1">Add your first customer or switch company filter</p>
         </div>
       )}
     </div>

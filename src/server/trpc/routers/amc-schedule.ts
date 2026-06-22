@@ -106,6 +106,7 @@ export const amcScheduleRouter = router({
             orderBy: { quarter: 'asc' },
           },
           contract: true,
+          company: { select: { id: true, name: true } },
         },
         orderBy: { fiscalYear: 'desc' },
       })

@@ -6,6 +6,7 @@ import { Search, Plus, Bell, LogOut, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { motion, AnimatePresence } from 'framer-motion'
 import { signOut } from 'next-auth/react'
+import { CompanySelector } from '@/components/company/company-selector'
 
 export function TopBar({ user }: { user: any }) {
   const router = useRouter()
@@ -52,6 +53,8 @@ export function TopBar({ user }: { user: any }) {
 
         {/* Right side */}
         <div className="flex items-center gap-2">
+          <CompanySelector className="hidden sm:block" />
+
           <Button
             variant="ghost"
             size="sm"
