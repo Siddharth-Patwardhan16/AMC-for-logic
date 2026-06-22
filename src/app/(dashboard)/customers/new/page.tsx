@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { trpc } from '@/components/providers'
 import { parseAmcWorkbook, type AmcImportRow } from '@/lib/amc-excel-parser'
 import { emptyAmcRowDefaults } from '@/lib/amc-import-schema'
-import { importAmcRowsInBatches, type AmcImportProgress } from '@/lib/amc-import-batch'
+import { importAmcRowsInBatches, AMC_IMPORT_BATCH_SIZE, type AmcImportProgress } from '@/lib/amc-import-batch'
 import {
   AmcBillingFields,
   hasAmcBillingData,
@@ -47,7 +47,8 @@ export default function NewCustomerPage() {
   })
   const [amcBilling, setAmcBilling] = useState<AmcBillingFormValues>(emptyAmcRowDefaults())
 
-  const { companyFilter } = useCompany()
+  const { setSelectedCompanyId } = useCompany()
+  const utils = trpc.useUtils()
   const { data: companies } = trpc.company.list.useQuery()
   const createMutation = trpc.customer.create.useMutation({
     onSuccess: (customer) => {
@@ -58,7 +59,7 @@ export default function NewCustomerPage() {
   })
   const importMutation = trpc.customer.importAmcSpreadsheet.useMutation()
 
-  const selectedCompanyId = form.companyId || companyFilter || companies?.[0]?.id || ''
+  const selectedCompanyId = form.companyId || companies?.[0]?.id || ''
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -128,11 +129,16 @@ export default function NewCustomerPage() {
         previewRows,
         (rows) => importMutation.mutateAsync({
           rows,
-          defaultCompanyId: selectedCompanyId || undefined,
           skipExisting: true,
         }),
-        { batchSize: 2, onProgress: setImportProgress }
+        { batchSize: AMC_IMPORT_BATCH_SIZE, onProgress: setImportProgress }
       )
+
+      await Promise.all([
+        utils.customer.list.invalidate(),
+        utils.company.list.invalidate(),
+      ])
+      setSelectedCompanyId(null)
 
       setImportResult({
         created: result.created,
@@ -140,13 +146,14 @@ export default function NewCustomerPage() {
         errors: result.errors,
       })
 
-      if (result.created > 0 && result.errors.length === 0) {
-        toast.success(`Imported ${result.created} customers (${result.skipped} skipped)`)
+      if (result.created > 0) {
+        if (result.errors.length === 0) {
+          toast.success(`Imported ${result.created} customers (${result.skipped} skipped)`)
+        } else {
+          toast.warning(`Imported ${result.created}, skipped ${result.skipped}, ${result.errors.length} errors`)
+        }
         router.push('/customers')
         return
-      }
-      if (result.created > 0) {
-        toast.warning(`Imported ${result.created}, skipped ${result.skipped}, ${result.errors.length} errors`)
       } else if (result.skipped > 0 && result.errors.length === 0) {
         toast.info(`All ${result.skipped} customers already exist — nothing new imported`)
       } else if (result.errors.length > 0) {
@@ -368,7 +375,7 @@ export default function NewCustomerPage() {
                   />
                 </div>
                 <p className="text-[10px] text-[#52525B] mt-2">
-                  Imports 2 customers per request to stay within Netlify time limits (~4s each).
+                  Imports {AMC_IMPORT_BATCH_SIZE} customers per request to stay within Netlify time limits.
                 </p>
               </div>
             )}

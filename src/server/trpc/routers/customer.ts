@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { protectedProcedure, router } from '../context'
 import { filterImportableRows } from '@/lib/amc-excel-parser'
-import { amcImportRowSchema, type AmcImportRow } from '@/lib/amc-import-schema'
+import { amcImportRowSchema } from '@/lib/amc-import-schema'
 import { createCustomerFromAmcRow, prepareCompaniesForImport, resolveOrCreateCompanyId } from '@/lib/customer-amc-create'
 import { normalizeImportRow } from '@/lib/amc-import-utils'
 
@@ -156,12 +156,18 @@ export const customerRouter = router({
       skipExisting: z.boolean().default(true),
     }))
     .mutation(async ({ ctx, input }) => {
-      const companies = await ctx.prisma.company.findMany({ where: { isActive: true } })
+      const companies = await ctx.prisma.company.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true },
+      })
 
       const rows = filterImportableRows(
         input.rows.map((row) => normalizeImportRow({ ...row, srNo: row.srNo ?? null }))
       )
       if (!rows.length) {
+        if (input.rows.length > 0) {
+          return { created: 0, skipped: 0, errors: [], total: 0 }
+        }
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: 'No importable customer rows found. The spreadsheet may only contain header rows.',
@@ -171,27 +177,26 @@ export const customerRouter = router({
       const fallbackCompanyLabel =
         rows.map((row) => row.companyLabel.trim()).find(Boolean) || 'Logic'
 
-      // Resolve company IDs up front and ensure AMC categories once per company (not per row).
-      const rowCompanyIds = new Map<AmcImportRow, string>()
+      const companyIdByLabel = new Map<string, string>()
       for (const row of rows) {
         const label = row.companyLabel.trim() || fallbackCompanyLabel
+        if (companyIdByLabel.has(label)) continue
         const companyId = await resolveOrCreateCompanyId(ctx.prisma, label, companies)
         if (!companyId) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
-            message: `Could not resolve company for row "${row.name}"`,
+            message: `Could not resolve company "${label}"`,
           })
         }
-        rowCompanyIds.set(row, companyId)
+        companyIdByLabel.set(label, companyId)
       }
 
-      await prepareCompaniesForImport(ctx.prisma, [...rowCompanyIds.values()])
+      await prepareCompaniesForImport(ctx.prisma, [...companyIdByLabel.values()])
 
       let created = 0
       let skipped = 0
       const errors: string[] = []
 
-      // Pre-load existing customers once to avoid per-row lookups during bulk import
       const existingCustomers = await ctx.prisma.customer.findMany({
         select: { companyId: true, name: true },
       })
@@ -201,7 +206,8 @@ export const customerRouter = router({
 
       for (const row of rows) {
         try {
-          const companyId = rowCompanyIds.get(row)!
+          const label = row.companyLabel.trim() || fallbackCompanyLabel
+          const companyId = companyIdByLabel.get(label)!
 
           if (input.skipExisting) {
             const key = `${companyId}:${row.name.trim().toLowerCase()}`

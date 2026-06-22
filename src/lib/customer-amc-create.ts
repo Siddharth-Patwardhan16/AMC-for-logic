@@ -117,9 +117,36 @@ export async function resolveOrCreateCompanyId(
   const existing = resolveCompanyId(name, companies)
   if (existing) return existing
 
-  const createdCompany = await prisma.company.create({
-    data: { name, isActive: true },
+  const fromDb = await prisma.company.findFirst({
+    where: {
+      isActive: true,
+      name: { equals: name, mode: 'insensitive' },
+    },
+    select: { id: true, name: true },
   })
-  companies.push(createdCompany)
-  return createdCompany.id
+  if (fromDb) {
+    companies.push(fromDb)
+    return fromDb.id
+  }
+
+  try {
+    const createdCompany = await prisma.company.create({
+      data: { name, isActive: true },
+    })
+    companies.push(createdCompany)
+    return createdCompany.id
+  } catch {
+    const retry = await prisma.company.findFirst({
+      where: {
+        isActive: true,
+        name: { equals: name, mode: 'insensitive' },
+      },
+      select: { id: true, name: true },
+    })
+    if (retry) {
+      companies.push(retry)
+      return retry.id
+    }
+    throw new Error(`Could not create company "${name}"`)
+  }
 }

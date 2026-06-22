@@ -171,7 +171,7 @@ export default function CustomersPage() {
             <Users className="h-5 w-5 text-[#52525B]" />
           </div>
           <p className="text-sm text-[#A1A1AA]">No customers found</p>
-          <p className="text-xs text-[#52525B] mt-1">Add your first customer or switch company filter</p>
+          <p className="text-xs text-[#52525B] mt-1">Add your first customer, import from Excel, or set the company filter to &quot;All companies&quot;</p>
         </div>
       )}
     </div>

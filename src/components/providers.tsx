@@ -7,6 +7,7 @@ import { httpBatchLink } from '@trpc/client'
 import { createTRPCReact } from '@trpc/react-query'
 import { type AppRouter } from '@/server/trpc/router'
 import { CompanyProvider } from '@/components/company/company-context'
+import { CompanyFilterSync } from '@/components/company/company-filter-sync'
 
 export const trpc = createTRPCReact<AppRouter>()
 
@@ -40,6 +41,7 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
           <CompanyProvider>
+            <CompanyFilterSync />
             {children}
           </CompanyProvider>
         </QueryClientProvider>

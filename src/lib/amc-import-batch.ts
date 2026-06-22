@@ -1,6 +1,6 @@
 import type { AmcImportRow } from '@/lib/amc-import-schema'
 
-export const AMC_IMPORT_BATCH_SIZE = 2
+export const AMC_IMPORT_BATCH_SIZE = 8
 
 export type AmcImportBatchResult = {
   created: number
