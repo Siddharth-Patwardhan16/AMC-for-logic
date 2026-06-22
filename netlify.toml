@@ -4,5 +4,9 @@
 [build.environment]
   NEXTAUTH_URL = "https://amcforlogic.netlify.app"
 
+[functions]
+  # Netlify Pro allows up to 26s; helps AMC bulk import batches
+  node_bundler = "esbuild"
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"

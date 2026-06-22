@@ -173,18 +173,21 @@ export const customerRouter = router({
       let skipped = 0
       const errors: string[] = []
 
+      // Pre-load existing customers once to avoid per-row lookups during bulk import
+      const existingCustomers = await ctx.prisma.customer.findMany({
+        select: { companyId: true, name: true },
+      })
+      const existingKeys = new Set(
+        existingCustomers.map((c) => `${c.companyId}:${c.name.trim().toLowerCase()}`)
+      )
+
       for (const row of rows) {
         try {
           const companyId = await resolveOrCreateCompanyId(ctx.prisma, row.companyLabel || '', companies) || defaultCompanyId
 
           if (input.skipExisting) {
-            const existing = await ctx.prisma.customer.findFirst({
-              where: {
-                companyId,
-                name: { equals: row.name, mode: 'insensitive' },
-              },
-            })
-            if (existing) {
+            const key = `${companyId}:${row.name.trim().toLowerCase()}`
+            if (existingKeys.has(key)) {
               skipped++
               continue
             }
@@ -195,6 +198,7 @@ export const customerRouter = router({
             companyId,
           })
 
+          existingKeys.add(`${companyId}:${row.name.trim().toLowerCase()}`)
           created++
         } catch (error) {
           errors.push(`${row.name}: ${error instanceof Error ? error.message : 'Import failed'}`)

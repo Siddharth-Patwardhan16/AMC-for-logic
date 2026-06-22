@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { trpc } from '@/components/providers'
 import { parseAmcWorkbook, type AmcImportRow } from '@/lib/amc-excel-parser'
 import { emptyAmcRowDefaults } from '@/lib/amc-import-schema'
+import { importAmcRowsInBatches, type AmcImportProgress } from '@/lib/amc-import-batch'
 import {
   AmcBillingFields,
   hasAmcBillingData,
@@ -25,6 +26,8 @@ export default function NewCustomerPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [tab, setTab] = useState<Tab>('manual')
   const [previewRows, setPreviewRows] = useState<AmcImportRow[]>([])
+  const [isImporting, setIsImporting] = useState(false)
+  const [importProgress, setImportProgress] = useState<AmcImportProgress | null>(null)
 
   const [form, setForm] = useState({
     name: '',
@@ -52,24 +55,7 @@ export default function NewCustomerPage() {
     },
     onError: (err) => toast.error(err.message),
   })
-  const importMutation = trpc.customer.importAmcSpreadsheet.useMutation({
-    onSuccess: (result) => {
-      if (result.created > 0) {
-        toast.success(`Imported ${result.created} customers (${result.skipped} skipped)`)
-      } else if (result.skipped > 0) {
-        toast.info(`All ${result.skipped} customers already exist — nothing new imported`)
-      } else {
-        toast.error('No customers were imported')
-      }
-      if (result.errors.length) {
-        toast.error(result.errors.slice(0, 3).join('; '))
-      }
-      if (result.created > 0) {
-        router.push('/customers')
-      }
-    },
-    onError: (err) => toast.error(err.message),
-  })
+  const importMutation = trpc.customer.importAmcSpreadsheet.useMutation()
 
   const selectedCompanyId = form.companyId || companyFilter || companies?.[0]?.id || ''
 
@@ -126,16 +112,45 @@ export default function NewCustomerPage() {
     }
   }
 
-  const handleImport = () => {
+  const handleImport = async () => {
     if (!previewRows.length) {
       toast.error('Upload the AMC Excel file first')
       return
     }
-    importMutation.mutate({
-      rows: previewRows,
-      defaultCompanyId: selectedCompanyId || undefined,
-      skipExisting: true,
-    })
+
+    setIsImporting(true)
+    setImportProgress({ done: 0, total: previewRows.length, batch: 0, batchCount: 0 })
+
+    try {
+      const result = await importAmcRowsInBatches(
+        previewRows,
+        (rows) => importMutation.mutateAsync({
+          rows,
+          defaultCompanyId: selectedCompanyId || undefined,
+          skipExisting: true,
+        }),
+        { onProgress: setImportProgress }
+      )
+
+      if (result.created > 0) {
+        toast.success(`Imported ${result.created} customers (${result.skipped} skipped)`)
+      } else if (result.skipped > 0) {
+        toast.info(`All ${result.skipped} customers already exist — nothing new imported`)
+      } else {
+        toast.error('No customers were imported')
+      }
+      if (result.errors.length) {
+        toast.error(result.errors.slice(0, 3).join('; '))
+      }
+      if (result.created > 0) {
+        router.push('/customers')
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Import failed')
+    } finally {
+      setIsImporting(false)
+      setImportProgress(null)
+    }
   }
 
   return (
@@ -321,13 +336,33 @@ export default function NewCustomerPage() {
               <Button
                 type="button"
                 className="rounded-xl"
-                disabled={!previewRows.length || importMutation.isPending}
+                disabled={!previewRows.length || isImporting}
                 onClick={handleImport}
               >
-                {importMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                {isImporting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 Import {previewRows.length ? `${previewRows.length} customers` : 'customers'}
               </Button>
             </div>
+
+            {isImporting && importProgress && (
+              <div className="mt-5 p-4 rounded-xl bg-[#0A0A0A] border border-[#262626]">
+                <div className="flex items-center justify-between text-xs text-[#A1A1AA] mb-2">
+                  <span>
+                    Importing batch {importProgress.batch || 1} of {importProgress.batchCount || '…'}
+                  </span>
+                  <span>{importProgress.done} / {importProgress.total}</span>
+                </div>
+                <div className="h-2 rounded-full bg-[#171717] overflow-hidden">
+                  <div
+                    className="h-full bg-[#4F8CFF] rounded-full transition-all duration-300"
+                    style={{ width: `${importProgress.total > 0 ? (importProgress.done / importProgress.total) * 100 : 0}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-[#52525B] mt-2">
+                  Large imports run in small batches to avoid server timeouts.
+                </p>
+              </div>
+            )}
           </div>
 
           {previewRows.length > 0 && (
