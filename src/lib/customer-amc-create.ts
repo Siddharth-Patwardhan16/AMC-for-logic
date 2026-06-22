@@ -105,15 +105,18 @@ export async function createCustomerFromAmcRow(
   })
 }
 
+/** Find exact company name or create one using the spreadsheet label as-is. */
 export async function resolveOrCreateCompanyId(
   prisma: Pick<PrismaClient, 'company'>,
   label: string,
   companies: { id: string; name: string }[]
-): Promise<string> {
-  const resolved = resolveCompanyId(label, companies)
-  if (resolved) return resolved
+): Promise<string | null> {
+  const name = label.trim()
+  if (!name) return null
 
-  const name = label.trim() || 'Imported'
+  const existing = resolveCompanyId(name, companies)
+  if (existing) return existing
+
   const createdCompany = await prisma.company.create({
     data: { name, isActive: true },
   })

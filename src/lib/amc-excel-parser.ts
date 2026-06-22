@@ -299,29 +299,13 @@ export function buildAmcNotes(row: AmcImportRow): string {
   return lines.join('\n')
 }
 
+/** Match company by exact name (case-insensitive). Returns null when no match — never guess. */
 export function resolveCompanyId(
   label: string,
   companies: { id: string; name: string }[]
 ): string | null {
-  if (!companies.length) return null
+  const normalized = label.trim().toLowerCase()
+  if (!normalized || !companies.length) return null
 
-  const normalized = label.toLowerCase()
-  const exact = companies.find((c) => c.name.toLowerCase() === normalized)
-  if (exact) return exact.id
-
-  const partial = companies.find((c) => {
-    const name = c.name.toLowerCase()
-    return name.includes(normalized) || normalized.includes(name.split(' ')[0])
-  })
-  if (partial) return partial.id
-
-  if (normalized.includes('logic')) {
-    return companies.find((c) => c.name.toLowerCase().includes('logic'))?.id ?? companies[0].id
-  }
-
-  if (normalized.includes('computerwala') || normalized.includes('computer wala')) {
-    return companies.find((c) => c.name.toLowerCase().includes('computerwala'))?.id ?? null
-  }
-
-  return companies[0].id
+  return companies.find((c) => c.name.trim().toLowerCase() === normalized)?.id ?? null
 }

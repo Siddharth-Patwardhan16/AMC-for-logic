@@ -110,18 +110,24 @@ export const customerRouter = router({
 
       if (amcBilling) {
         const companies = await ctx.prisma.company.findMany({ where: { isActive: true } })
-        const companyLabel = amcCompanyLabel ?? companies.find((c) => c.id === data.companyId)?.name ?? 'Logic'
+        const companyLabel = amcCompanyLabel?.trim()
         const location = amcLocation ?? locations[0]?.name ?? locations[0]?.city ?? 'Head Office'
+
+        let companyId = data.companyId
+        if (companyLabel) {
+          const resolved = await resolveOrCreateCompanyId(ctx.prisma, companyLabel, companies)
+          if (resolved) companyId = resolved
+        }
 
         return createCustomerFromAmcRow(ctx.prisma, {
           row: {
             name: data.name,
-            companyLabel,
+            companyLabel: companyLabel || companies.find((c) => c.id === companyId)?.name || 'Logic',
             location,
             ...amcBilling,
             srNo: amcBilling.srNo ?? null,
           },
-          companyId: data.companyId,
+          companyId,
           industry: data.industry,
           gst: data.gst,
           pan: data.pan,
@@ -173,7 +179,16 @@ export const customerRouter = router({
       // Resolve company IDs up front and ensure AMC categories once per company (not per row).
       const rowCompanyIds = new Map<AmcImportRow, string>()
       for (const row of rows) {
-        const companyId = await resolveOrCreateCompanyId(ctx.prisma, row.companyLabel || '', companies) || defaultCompanyId
+        const label = row.companyLabel.trim()
+        const companyId = label
+          ? await resolveOrCreateCompanyId(ctx.prisma, label, companies)
+          : defaultCompanyId
+        if (!companyId) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `Could not resolve company for row "${row.name}"`,
+          })
+        }
         rowCompanyIds.set(row, companyId)
       }
       await prepareCompaniesForImport(ctx.prisma, [...rowCompanyIds.values()])
