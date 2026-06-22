@@ -28,6 +28,7 @@ export default function NewCustomerPage() {
   const [previewRows, setPreviewRows] = useState<AmcImportRow[]>([])
   const [isImporting, setIsImporting] = useState(false)
   const [importProgress, setImportProgress] = useState<AmcImportProgress | null>(null)
+  const [importResult, setImportResult] = useState<{ created: number; skipped: number; errors: string[] } | null>(null)
 
   const [form, setForm] = useState({
     name: '',
@@ -119,6 +120,7 @@ export default function NewCustomerPage() {
     }
 
     setIsImporting(true)
+    setImportResult(null)
     setImportProgress({ done: 0, total: previewRows.length, batch: 0, batchCount: 0 })
 
     try {
@@ -129,21 +131,28 @@ export default function NewCustomerPage() {
           defaultCompanyId: selectedCompanyId || undefined,
           skipExisting: true,
         }),
-        { onProgress: setImportProgress }
+        { batchSize: 2, onProgress: setImportProgress }
       )
 
-      if (result.created > 0) {
+      setImportResult({
+        created: result.created,
+        skipped: result.skipped,
+        errors: result.errors,
+      })
+
+      if (result.created > 0 && result.errors.length === 0) {
         toast.success(`Imported ${result.created} customers (${result.skipped} skipped)`)
-      } else if (result.skipped > 0) {
+        router.push('/customers')
+        return
+      }
+      if (result.created > 0) {
+        toast.warning(`Imported ${result.created}, skipped ${result.skipped}, ${result.errors.length} errors`)
+      } else if (result.skipped > 0 && result.errors.length === 0) {
         toast.info(`All ${result.skipped} customers already exist — nothing new imported`)
+      } else if (result.errors.length > 0) {
+        toast.error(`Import failed: ${result.errors[0]}`)
       } else {
         toast.error('No customers were imported')
-      }
-      if (result.errors.length) {
-        toast.error(result.errors.slice(0, 3).join('; '))
-      }
-      if (result.created > 0) {
-        router.push('/customers')
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Import failed')
@@ -359,8 +368,28 @@ export default function NewCustomerPage() {
                   />
                 </div>
                 <p className="text-[10px] text-[#52525B] mt-2">
-                  Large imports run in small batches to avoid server timeouts.
+                  Imports 2 customers per request to stay within Netlify time limits (~4s each).
                 </p>
+              </div>
+            )}
+
+            {importResult && (
+              <div className="mt-4 p-4 rounded-xl bg-[#0A0A0A] border border-[#262626] text-xs">
+                <p className="text-white font-medium mb-1">
+                  Import result: {importResult.created} created, {importResult.skipped} skipped
+                </p>
+                {importResult.errors.length > 0 && (
+                  <ul className="mt-2 space-y-1 text-[#EF4444] max-h-32 overflow-auto">
+                    {importResult.errors.map((err) => (
+                      <li key={err}>{err}</li>
+                    ))}
+                  </ul>
+                )}
+                {importResult.created > 0 && (
+                  <Link href="/customers" className="inline-block mt-3 text-[#4F8CFF] hover:underline">
+                    View customers →
+                  </Link>
+                )}
               </div>
             )}
           </div>

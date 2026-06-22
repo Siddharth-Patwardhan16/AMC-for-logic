@@ -15,13 +15,15 @@ export async function ensureDefaultCategories(prisma: Pick<PrismaClient, 'amcCat
     { name: 'Network', defaultIncludeInEmi: true },
   ]
 
-  for (const cat of defaults) {
-    await prisma.amcCategory.upsert({
-      where: { companyId_name: { companyId, name: cat.name } },
-      update: {},
-      create: { companyId, ...cat },
-    })
-  }
+  await Promise.all(
+    defaults.map((cat) =>
+      prisma.amcCategory.upsert({
+        where: { companyId_name: { companyId, name: cat.name } },
+        update: {},
+        create: { companyId, ...cat },
+      })
+    )
+  )
 }
 
 export function buildInstallmentCreates(

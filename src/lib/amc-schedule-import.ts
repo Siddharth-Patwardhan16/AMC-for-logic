@@ -17,13 +17,16 @@ type CreateScheduleParams = {
   companyId: string
   contractId?: string
   row: AmcImportRow
+  skipCategoryEnsure?: boolean
 }
 
 export async function createAmcScheduleFromRow(
   prisma: DbClient,
-  { customerId, companyId, contractId, row }: CreateScheduleParams
+  { customerId, companyId, contractId, row, skipCategoryEnsure = false }: CreateScheduleParams
 ) {
-  await ensureDefaultCategories(prisma, companyId)
+  if (!skipCategoryEnsure) {
+    await ensureDefaultCategories(prisma, companyId)
+  }
 
   const lineItems = lineItemsFromImportRow(row)
   const amounts = [row.amountQ1, row.amountQ2, row.amountQ3, row.amountQ4] as const
@@ -73,9 +76,6 @@ export async function createAmcScheduleFromRow(
         ? { create: buildInstallmentCreates([...amounts], FISCAL_YEAR_26_27) }
         : undefined,
     },
-    include: {
-      lineItems: { include: { addons: true } },
-      installments: true,
-    },
+    select: { id: true },
   })
 }

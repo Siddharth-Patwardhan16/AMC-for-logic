@@ -2,8 +2,9 @@ import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { protectedProcedure, router } from '../context'
 import { filterImportableRows } from '@/lib/amc-excel-parser'
-import { amcImportRowSchema } from '@/lib/amc-import-schema'
-import { createCustomerFromAmcRow, resolveOrCreateCompanyId } from '@/lib/customer-amc-create'
+import { amcImportRowSchema, type AmcImportRow } from '@/lib/amc-import-schema'
+import { createCustomerFromAmcRow, prepareCompaniesForImport, resolveOrCreateCompanyId } from '@/lib/customer-amc-create'
+import { normalizeImportRow } from '@/lib/amc-import-utils'
 
 export const customerRouter = router({
   list: protectedProcedure
@@ -158,7 +159,7 @@ export const customerRouter = router({
       }
 
       const rows = filterImportableRows(
-        input.rows.map((row) => ({ ...row, srNo: row.srNo ?? null }))
+        input.rows.map((row) => normalizeImportRow({ ...row, srNo: row.srNo ?? null }))
       )
       if (!rows.length) {
         throw new TRPCError({
@@ -168,6 +169,14 @@ export const customerRouter = router({
       }
 
       const defaultCompanyId = input.defaultCompanyId ?? companies[0].id
+
+      // Resolve company IDs up front and ensure AMC categories once per company (not per row).
+      const rowCompanyIds = new Map<AmcImportRow, string>()
+      for (const row of rows) {
+        const companyId = await resolveOrCreateCompanyId(ctx.prisma, row.companyLabel || '', companies) || defaultCompanyId
+        rowCompanyIds.set(row, companyId)
+      }
+      await prepareCompaniesForImport(ctx.prisma, [...rowCompanyIds.values()])
 
       let created = 0
       let skipped = 0
@@ -183,7 +192,7 @@ export const customerRouter = router({
 
       for (const row of rows) {
         try {
-          const companyId = await resolveOrCreateCompanyId(ctx.prisma, row.companyLabel || '', companies) || defaultCompanyId
+          const companyId = rowCompanyIds.get(row) || defaultCompanyId
 
           if (input.skipExisting) {
             const key = `${companyId}:${row.name.trim().toLowerCase()}`
@@ -196,6 +205,7 @@ export const customerRouter = router({
           await createCustomerFromAmcRow(ctx.prisma, {
             row: { ...row, srNo: row.srNo ?? null },
             companyId,
+            skipCategoryEnsure: true,
           })
 
           existingKeys.add(`${companyId}:${row.name.trim().toLowerCase()}`)

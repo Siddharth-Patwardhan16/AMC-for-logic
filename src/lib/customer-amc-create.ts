@@ -3,8 +3,9 @@ import type { PrismaClient } from '@prisma/client'
 import { buildAmcNotes, resolveCompanyId } from '@/lib/amc-excel-parser'
 import type { AmcImportRow } from '@/lib/amc-import-schema'
 import { createAmcScheduleFromRow } from '@/lib/amc-schedule-import'
+import { ensureDefaultCategories } from '@/lib/amc-schedule-sync'
 
-type DbClient = Pick<PrismaClient, 'customer' | 'company' | '$transaction'>
+type DbClient = Pick<PrismaClient, 'customer' | 'company' | 'amcCategory' | '$transaction'>
 
 const FY_START = new Date('2026-04-01')
 const FY_END = new Date('2027-03-31')
@@ -23,6 +24,15 @@ export type CreateCustomerFromAmcParams = {
     designation?: string
     isPrimary?: boolean
   }[]
+  skipCategoryEnsure?: boolean
+}
+
+export async function prepareCompaniesForImport(
+  prisma: Pick<PrismaClient, 'amcCategory'>,
+  companyIds: string[]
+) {
+  const unique = [...new Set(companyIds)]
+  await Promise.all(unique.map((id) => ensureDefaultCategories(prisma, id)))
 }
 
 export async function createCustomerFromAmcRow(
@@ -35,6 +45,7 @@ export async function createCustomerFromAmcRow(
     pan,
     billingAddress,
     contactPersons = [],
+    skipCategoryEnsure = false,
   }: CreateCustomerFromAmcParams
 ) {
   const contractValue = row.yearlyAmount > 0 ? row.yearlyAmount : row.quarterlyTotal * 4
@@ -74,10 +85,10 @@ export async function createCustomerFromAmcRow(
           }],
         } : undefined,
       },
-      include: {
-        locations: true,
-        contactPersons: true,
-        contracts: true,
+      select: {
+        id: true,
+        name: true,
+        contracts: { select: { id: true } },
       },
     })
 
@@ -87,6 +98,7 @@ export async function createCustomerFromAmcRow(
       companyId,
       contractId,
       row,
+      skipCategoryEnsure,
     })
 
     return customer
