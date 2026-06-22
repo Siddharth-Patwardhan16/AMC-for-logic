@@ -1,6 +1,5 @@
 [build]
   command = "npm run build"
-  publish = ".next"
 
 [build.environment]
   NEXTAUTH_URL = "https://amcforlogic.netlify.app"
