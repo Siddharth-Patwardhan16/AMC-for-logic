@@ -157,12 +157,6 @@ export const customerRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const companies = await ctx.prisma.company.findMany({ where: { isActive: true } })
-      if (!companies.length) {
-        throw new TRPCError({
-          code: 'PRECONDITION_FAILED',
-          message: 'No company found. Add a company in Settings before importing customers.',
-        })
-      }
 
       const rows = filterImportableRows(
         input.rows.map((row) => normalizeImportRow({ ...row, srNo: row.srNo ?? null }))
@@ -174,15 +168,16 @@ export const customerRouter = router({
         })
       }
 
-      const defaultCompanyId = input.defaultCompanyId ?? companies[0].id
+      const fallbackCompanyLabel =
+        rows.map((row) => row.companyLabel.trim()).find(Boolean) || 'Logic'
+
+      let defaultCompanyId = input.defaultCompanyId ?? companies[0]?.id
 
       // Resolve company IDs up front and ensure AMC categories once per company (not per row).
       const rowCompanyIds = new Map<AmcImportRow, string>()
       for (const row of rows) {
-        const label = row.companyLabel.trim()
-        const companyId = label
-          ? await resolveOrCreateCompanyId(ctx.prisma, label, companies)
-          : defaultCompanyId
+        const label = row.companyLabel.trim() || fallbackCompanyLabel
+        const companyId = await resolveOrCreateCompanyId(ctx.prisma, label, companies)
         if (!companyId) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
@@ -190,6 +185,10 @@ export const customerRouter = router({
           })
         }
         rowCompanyIds.set(row, companyId)
+      }
+
+      if (!defaultCompanyId) {
+        defaultCompanyId = rowCompanyIds.get(rows[0])
       }
       await prepareCompaniesForImport(ctx.prisma, [...rowCompanyIds.values()])
 
