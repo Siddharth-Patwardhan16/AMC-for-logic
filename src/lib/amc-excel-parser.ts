@@ -7,16 +7,22 @@ export type AmcImportRow = {
   companyLabel: string
   location: string
   serverRateYearly: number
+  serverRateQuarterly: number
+  sophosQuantity: number
+  sophosRateYearly: number
+  sophosRateQuarterly: number
   serverQtyQ1: number
   serverQtyQ2: number
   serverQtyQ3: number
   serverQtyQ4: number
   thinClientRateYearly: number
+  thinClientRateQuarterly: number
   thinClientQtyQ1: number
   thinClientQtyQ2: number
   thinClientQtyQ3: number
   thinClientQtyQ4: number
   laptopDesktopRateYearly: number
+  laptopDesktopRateQuarterly: number
   laptopDesktopQtyQ1: number
   laptopDesktopQtyQ2: number
   laptopDesktopQtyQ3: number
@@ -53,6 +59,32 @@ function isSectionHeader(name: string): boolean {
   return SECTION_MARKERS.some((marker) => lower === marker || lower.startsWith(marker))
 }
 
+function parseSophos(row: unknown[]): {
+  quantity: number
+  rateYearly: number
+  rateQuarterly: number
+} {
+  const raw = toNumber(row[6])
+  if (raw <= 0) return { quantity: 0, rateYearly: 0, rateQuarterly: 0 }
+
+  // Small integers are license counts (e.g. Ganorkar Hospital = 2 firewalls)
+  if (raw < 100 && Number.isInteger(raw)) {
+    const serverYearly = toNumber(row[5])
+    const serverQuarterly = toNumber(row[7])
+    return {
+      quantity: raw,
+      rateYearly: serverYearly > 0 ? serverYearly / 4 : 0,
+      rateQuarterly: serverQuarterly > 0 ? serverQuarterly : serverYearly / 4,
+    }
+  }
+
+  return {
+    quantity: 1,
+    rateYearly: raw,
+    rateQuarterly: raw / 4,
+  }
+}
+
 function parseSheetRow(row: unknown[], currentSection: string): AmcImportRow | null {
   const name = toText(row[1])
   if (!name || isSectionHeader(name)) return null
@@ -60,6 +92,7 @@ function parseSheetRow(row: unknown[], currentSection: string): AmcImportRow | n
   const companyLabel = toText(row[3])
   const location = toText(row[4])
   const yearlyAmount = toNumber(row[29])
+  const sophos = parseSophos(row)
 
   const hasAssetData =
     toNumber(row[8]) + toNumber(row[9]) + toNumber(row[10]) + toNumber(row[11]) +
@@ -70,23 +103,38 @@ function parseSheetRow(row: unknown[], currentSection: string): AmcImportRow | n
     return null
   }
 
+  const serverRateYearly = toNumber(row[5])
+  const serverRateQuarterly = toNumber(row[7]) || serverRateYearly / 4
+
+  const thinClientRateYearly = toNumber(row[12])
+  const thinClientRateQuarterly = toNumber(row[13]) || thinClientRateYearly / 4
+
+  const laptopDesktopRateYearly = toNumber(row[18])
+  const laptopDesktopRateQuarterly = toNumber(row[19]) || laptopDesktopRateYearly / 4
+
   return {
     srNo: toNumber(row[0]) || null,
     name,
     description: toText(row[2]) || undefined,
     companyLabel: companyLabel || 'Logic',
     location: location || 'Head Office',
-    serverRateYearly: toNumber(row[5]),
+    serverRateYearly,
+    serverRateQuarterly,
+    sophosQuantity: sophos.quantity,
+    sophosRateYearly: sophos.rateYearly,
+    sophosRateQuarterly: sophos.rateQuarterly,
     serverQtyQ1: toNumber(row[8]),
     serverQtyQ2: toNumber(row[9]),
     serverQtyQ3: toNumber(row[10]),
     serverQtyQ4: toNumber(row[11]),
-    thinClientRateYearly: toNumber(row[12]),
+    thinClientRateYearly,
+    thinClientRateQuarterly,
     thinClientQtyQ1: toNumber(row[14]),
     thinClientQtyQ2: toNumber(row[15]),
     thinClientQtyQ3: toNumber(row[16]),
     thinClientQtyQ4: toNumber(row[17]),
-    laptopDesktopRateYearly: toNumber(row[18]),
+    laptopDesktopRateYearly,
+    laptopDesktopRateQuarterly,
     laptopDesktopQtyQ1: toNumber(row[20]),
     laptopDesktopQtyQ2: toNumber(row[21]),
     laptopDesktopQtyQ3: toNumber(row[22]),
@@ -129,12 +177,17 @@ export function parseAmcWorkbook(buffer: ArrayBuffer): AmcImportRow[] {
 export function buildAmcNotes(row: AmcImportRow): string {
   const lines = [
     `Imported from AMC spreadsheet (${row.section ?? 'Q1'})`,
-    `Server: Q1=${row.serverQtyQ1}, Q2=${row.serverQtyQ2}, Q3=${row.serverQtyQ3}, Q4=${row.serverQtyQ4} @ ₹${row.serverRateYearly}/yr`,
+    `Server: Q1=${row.serverQtyQ1}, Q2=${row.serverQtyQ2}, Q3=${row.serverQtyQ3}, Q4=${row.serverQtyQ4} @ ₹${row.serverRateYearly}/yr (₹${row.serverRateQuarterly}/qtr)`,
+  ]
+  if (row.sophosQuantity > 0) {
+    lines.push(`Sophos Firewall: ${row.sophosQuantity} license(s)`)
+  }
+  lines.push(
     `Thin client: Q1=${row.thinClientQtyQ1}, Q2=${row.thinClientQtyQ2}, Q3=${row.thinClientQtyQ3}, Q4=${row.thinClientQtyQ4} @ ₹${row.thinClientRateYearly}/yr`,
     `Laptop/Desktop: Q1=${row.laptopDesktopQtyQ1}, Q2=${row.laptopDesktopQtyQ2}, Q3=${row.laptopDesktopQtyQ3}, Q4=${row.laptopDesktopQtyQ4} @ ₹${row.laptopDesktopRateYearly}/yr`,
-    `Billing: Q1=₹${row.amountQ1}, Q2=₹${row.amountQ2}, Q3=₹${row.amountQ3}, Q4=₹${row.amountQ4}`,
+    `Quarterly EMI: Q1=₹${row.amountQ1}, Q2=₹${row.amountQ2}, Q3=₹${row.amountQ3}, Q4=₹${row.amountQ4}`,
     `Yearly total: ₹${row.yearlyAmount}`,
-  ]
+  )
   if (row.description) lines.unshift(`Description: ${row.description}`)
   return lines.join('\n')
 }

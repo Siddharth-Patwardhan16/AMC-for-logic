@@ -63,6 +63,8 @@ model Company {
   implementations Implementation[]
   documents       Document[]
   materials       Material[]
+  amcSchedules    AmcSchedule[]
+  amcCategories   AmcCategory[]
 
   @@map("companies")
 }
@@ -99,6 +101,7 @@ model Customer {
   crmActivities   CRMActivity[]
   engineerVisits  EngineerVisit[]
   preventiveMaintenances PreventiveMaintenance[]
+  amcSchedules    AmcSchedule[]
 
   @@map("customers")
 }
@@ -230,6 +233,7 @@ model Contract {
   invoices    Invoice[]
   billings    Billing[]
   documents   Document[]
+  amcSchedules AmcSchedule[]
 
   @@map("contracts")
 }
@@ -253,6 +257,120 @@ model Billing {
   updatedAt   DateTime  @updatedAt
 
   @@map("billings")
+}
+
+model AmcSchedule {
+  id                  String            @id @default(cuid())
+  fiscalYear          String
+  section             String?
+  status              AmcScheduleStatus @default(ACTIVE)
+  enableQuarterlySplit Boolean          @default(false)
+
+  amountQ1            Decimal           @default(0) @db.Decimal(12, 2)
+  amountQ2            Decimal           @default(0) @db.Decimal(12, 2)
+  amountQ3            Decimal           @default(0) @db.Decimal(12, 2)
+  amountQ4            Decimal           @default(0) @db.Decimal(12, 2)
+  quarterlyTotal      Decimal           @default(0) @db.Decimal(12, 2)
+  yearlyAmount        Decimal           @default(0) @db.Decimal(12, 2)
+
+  customerId          String
+  customer            Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  contractId          String?
+  contract            Contract?         @relation(fields: [contractId], references: [id])
+
+  companyId           String
+  company             Company           @relation(fields: [companyId], references: [id])
+
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  lineItems           AmcLineItem[]
+  installments        AmcQuarterInstallment[]
+
+  @@unique([customerId, fiscalYear])
+  @@map("amc_schedules")
+}
+
+model AmcCategory {
+  id              String   @id @default(cuid())
+  name            String
+  defaultIncludeInEmi Boolean @default(true)
+
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  lineItems       AmcLineItem[]
+
+  @@unique([companyId, name])
+  @@map("amc_categories")
+}
+
+model AmcLineItem {
+  id              String          @id @default(cuid())
+  categoryName    String
+  label           String?
+  rateYearly      Decimal         @default(0) @db.Decimal(10, 2)
+  rateQuarterly   Decimal         @default(0) @db.Decimal(10, 2)
+  qtyQ1           Int             @default(0)
+  qtyQ2           Int             @default(0)
+  qtyQ3           Int             @default(0)
+  qtyQ4           Int             @default(0)
+  includeInEmi    Boolean         @default(true)
+
+  categoryId      String?
+  category        AmcCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  scheduleId      String
+  schedule        AmcSchedule     @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  addons          AmcLineItemAddon[]
+
+  @@map("amc_line_items")
+}
+
+model AmcLineItemAddon {
+  id              String      @id @default(cuid())
+  name            String
+  rateYearly      Decimal     @default(0) @db.Decimal(10, 2)
+  rateQuarterly   Decimal     @default(0) @db.Decimal(10, 2)
+  quantity        Int         @default(1)
+  includeInEmi    Boolean     @default(false)
+
+  lineItemId      String
+  lineItem        AmcLineItem @relation(fields: [lineItemId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@map("amc_line_item_addons")
+}
+
+model AmcQuarterInstallment {
+  id          String        @id @default(cuid())
+  quarter     Int
+  label       String
+  dueDate     DateTime
+  amount      Decimal       @db.Decimal(12, 2)
+  paidAmount  Decimal       @default(0) @db.Decimal(12, 2)
+  status      BillingStatus @default(PENDING)
+
+  scheduleId  String
+  schedule    AmcSchedule   @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  payments    Payment[]
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([scheduleId, quarter])
+  @@map("amc_quarter_installments")
 }
 
 model Quotation {
@@ -377,7 +495,10 @@ model Payment {
   
   invoiceId   String?
   invoice     Invoice?  @relation(fields: [invoiceId], references: [id])
-  
+
+  installmentId String?
+  installment   AmcQuarterInstallment? @relation(fields: [installmentId], references: [id])
+
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -797,4 +918,11 @@ enum MaterialStatus {
   LOW_STOCK
   OUT_OF_STOCK
   DISCONTINUED
+}
+
+enum AmcScheduleStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
 }

@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/components/providers'
+import { AmcBillingPanel } from '@/components/customers/amc-billing-panel'
 
 const statusConfig: Record<string, { color: string; bg: string; label: string }> = {
   ACTIVE: { color: 'text-[#22C55E]', bg: 'bg-[#22C55E]/10', label: 'Active' },
@@ -79,6 +80,7 @@ export default function CustomerDetailPage() {
 
   const tabs = [
     { id: 'overview', label: 'Overview' },
+    { id: 'amc', label: 'AMC Billing' },
     { id: 'timeline', label: 'Timeline' },
     { id: 'assets', label: 'Assets' },
     { id: 'finance', label: 'Finance' },
@@ -114,6 +116,13 @@ export default function CustomerDetailPage() {
       title: t.title,
       subtitle: `${t.status} · ${t.priority}`,
       date: new Date(t.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+    })),
+    ...customer.payments.map((p: any) => ({
+      type: 'invoice',
+      icon: Receipt,
+      title: `Payment received`,
+      subtitle: `₹${Number(p.amount).toLocaleString()} · ${p.paymentMode?.replace('_', ' ') ?? 'Payment'}`,
+      date: new Date(p.paymentDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
     })),
     ...customer.implementations.map((imp: any) => ({
       type: 'implementation',
@@ -260,15 +269,28 @@ export default function CustomerDetailPage() {
             {/* Outstanding */}
             <div className="p-5 rounded-2xl bg-[#111111] border border-[#262626]">
               <h3 className="text-sm font-semibold text-white mb-4">Outstanding</h3>
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-[#EF4444]/10 flex items-center justify-center">
-                  <TrendingUp className="h-5 w-5 text-[#EF4444]" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-white">₹0</p>
-                  <p className="text-xs text-[#A1A1AA]">No pending payments</p>
-                </div>
-              </div>
+              {(() => {
+                const installments = (customer as any).amcSchedules
+                  ?.filter((s: any) => s.enableQuarterlySplit)
+                  ?.flatMap((s: any) => s.installments ?? []) ?? []
+                const outstanding = installments.reduce((sum: number, i: any) => {
+                  const due = Number(i.amount) - Number(i.paidAmount)
+                  return sum + (due > 0 ? due : 0)
+                }, 0)
+                return (
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-[#EF4444]/10 flex items-center justify-center">
+                      <TrendingUp className="h-5 w-5 text-[#EF4444]" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-white">₹{outstanding.toLocaleString()}</p>
+                      <p className="text-xs text-[#A1A1AA]">
+                        {outstanding > 0 ? 'Pending quarterly EMIs' : 'No pending payments'}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
 
             {/* Locations */}
@@ -288,6 +310,14 @@ export default function CustomerDetailPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {activeTab === 'amc' && (
+          <AmcBillingPanel
+            customerId={id}
+            companyId={customer.companyId}
+            schedules={(customer as any).amcSchedules ?? []}
+          />
         )}
 
         {activeTab === 'timeline' && (

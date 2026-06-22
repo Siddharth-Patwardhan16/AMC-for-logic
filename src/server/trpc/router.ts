@@ -12,6 +12,7 @@ import { documentRouter } from './routers/document'
 import { dashboardRouter } from './routers/dashboard'
 import { crmRouter } from './routers/crm'
 import { materialRouter } from './routers/material'
+import { amcScheduleRouter } from './routers/amc-schedule'
 
 export const appRouter = router({
   company: companyRouter,
@@ -27,6 +28,7 @@ export const appRouter = router({
   dashboard: dashboardRouter,
   crm: crmRouter,
   material: materialRouter,
+  amcSchedule: amcScheduleRouter,
 })
 
 export type AppRouter = typeof appRouter

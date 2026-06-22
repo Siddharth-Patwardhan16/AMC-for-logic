@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { protectedProcedure, router } from '../context'
 import { buildAmcNotes, resolveCompanyId } from '@/lib/amc-excel-parser'
+import { createAmcScheduleFromRow } from '@/lib/amc-schedule-import'
 
 const amcImportRowSchema = z.object({
   srNo: z.number().nullable().optional(),
@@ -9,16 +10,22 @@ const amcImportRowSchema = z.object({
   companyLabel: z.string(),
   location: z.string(),
   serverRateYearly: z.number(),
+  serverRateQuarterly: z.number(),
+  sophosQuantity: z.number(),
+  sophosRateYearly: z.number(),
+  sophosRateQuarterly: z.number(),
   serverQtyQ1: z.number(),
   serverQtyQ2: z.number(),
   serverQtyQ3: z.number(),
   serverQtyQ4: z.number(),
   thinClientRateYearly: z.number(),
+  thinClientRateQuarterly: z.number(),
   thinClientQtyQ1: z.number(),
   thinClientQtyQ2: z.number(),
   thinClientQtyQ3: z.number(),
   thinClientQtyQ4: z.number(),
   laptopDesktopRateYearly: z.number(),
+  laptopDesktopRateQuarterly: z.number(),
   laptopDesktopQtyQ1: z.number(),
   laptopDesktopQtyQ2: z.number(),
   laptopDesktopQtyQ3: z.number(),
@@ -71,6 +78,13 @@ export const customerRouter = router({
           contactPersons: true,
           assets: { include: { customerLocation: true } },
           contracts: { include: { billings: true } },
+          amcSchedules: {
+            include: {
+              lineItems: { include: { addons: true } },
+              installments: { include: { payments: true }, orderBy: { quarter: 'asc' } },
+            },
+            orderBy: { fiscalYear: 'desc' },
+          },
           tickets: { orderBy: { createdAt: 'desc' }, take: 10 },
           invoices: { orderBy: { createdAt: 'desc' }, take: 10 },
           implementations: { orderBy: { implementDate: 'desc' } },
@@ -166,7 +180,7 @@ export const customerRouter = router({
           const contractValue = row.yearlyAmount > 0 ? row.yearlyAmount : row.quarterlyTotal * 4
           const contractNumber = `AMC-${new Date().getFullYear()}-${String(created + skipped + 1).padStart(4, '0')}`
 
-          await ctx.prisma.customer.create({
+          const customer = await ctx.prisma.customer.create({
             data: {
               name: row.name.trim(),
               status: 'ACTIVE',
@@ -193,6 +207,15 @@ export const customerRouter = router({
                 }],
               } : undefined,
             },
+            include: { contracts: true },
+          })
+
+          const contractId = customer.contracts[0]?.id
+          await createAmcScheduleFromRow(ctx.prisma, {
+            customerId: customer.id,
+            companyId,
+            contractId,
+            row: { ...row, srNo: row.srNo ?? null },
           })
 
           created++

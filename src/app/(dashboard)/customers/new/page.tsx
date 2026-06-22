@@ -313,7 +313,11 @@ export default function NewCustomerPage() {
                       <th className="text-left p-3">Name</th>
                       <th className="text-left p-3">Location</th>
                       <th className="text-left p-3">Section</th>
-                      <th className="text-right p-3">Yearly Amt</th>
+                      <th className="text-right p-3">Q1</th>
+                      <th className="text-right p-3">Q2</th>
+                      <th className="text-right p-3">Q3</th>
+                      <th className="text-right p-3">Q4</th>
+                      <th className="text-right p-3">Yearly</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -322,6 +326,10 @@ export default function NewCustomerPage() {
                         <td className="p-3 text-white">{row.name}</td>
                         <td className="p-3 text-[#A1A1AA]">{row.location}</td>
                         <td className="p-3 text-[#A1A1AA]">{row.section}</td>
+                        <td className="p-3 text-right text-[#A1A1AA]">₹{row.amountQ1.toLocaleString()}</td>
+                        <td className="p-3 text-right text-[#A1A1AA]">₹{row.amountQ2.toLocaleString()}</td>
+                        <td className="p-3 text-right text-[#A1A1AA]">₹{row.amountQ3.toLocaleString()}</td>
+                        <td className="p-3 text-right text-[#A1A1AA]">₹{row.amountQ4.toLocaleString()}</td>
                         <td className="p-3 text-right text-[#22C55E]">₹{row.yearlyAmount.toLocaleString()}</td>
                       </tr>
                     ))}
