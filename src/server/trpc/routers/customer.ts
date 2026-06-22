@@ -171,8 +171,6 @@ export const customerRouter = router({
       const fallbackCompanyLabel =
         rows.map((row) => row.companyLabel.trim()).find(Boolean) || 'Logic'
 
-      let defaultCompanyId = input.defaultCompanyId ?? companies[0]?.id
-
       // Resolve company IDs up front and ensure AMC categories once per company (not per row).
       const rowCompanyIds = new Map<AmcImportRow, string>()
       for (const row of rows) {
@@ -187,9 +185,6 @@ export const customerRouter = router({
         rowCompanyIds.set(row, companyId)
       }
 
-      if (!defaultCompanyId) {
-        defaultCompanyId = rowCompanyIds.get(rows[0])
-      }
       await prepareCompaniesForImport(ctx.prisma, [...rowCompanyIds.values()])
 
       let created = 0
@@ -206,7 +201,7 @@ export const customerRouter = router({
 
       for (const row of rows) {
         try {
-          const companyId = rowCompanyIds.get(row) || defaultCompanyId
+          const companyId = rowCompanyIds.get(row)!
 
           if (input.skipExisting) {
             const key = `${companyId}:${row.name.trim().toLowerCase()}`
