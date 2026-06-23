@@ -1,17 +1,27 @@
 import { z } from 'zod'
 import { protectedProcedure, router } from '../context'
+import { paginatedResult, paginationFields, resolvePagination } from '@/lib/pagination'
 
 export const engineerRouter = router({
   list: protectedProcedure
     .input(z.object({
       role: z.string().optional(),
       status: z.string().optional(),
+      search: z.string().optional(),
+      ...paginationFields,
     }).optional())
     .query(async ({ ctx, input }) => {
+      const { page, pageSize, skip, take } = resolvePagination(input ?? undefined)
       const where: any = {}
       if (input?.role) where.role = input.role
       if (input?.status) where.status = input.status
-      return ctx.prisma.user.findMany({
+      if (input?.search) {
+        where.OR = [
+          { name: { contains: input.search, mode: 'insensitive' } },
+          { email: { contains: input.search, mode: 'insensitive' } },
+        ]
+      }
+      const queryArgs = {
         where,
         include: {
           _count: {
@@ -21,8 +31,13 @@ export const engineerRouter = router({
             },
           },
         },
-        orderBy: { name: 'asc' },
-      })
+        orderBy: { name: 'asc' as const },
+      }
+      const [items, total] = await Promise.all([
+        ctx.prisma.user.findMany({ ...queryArgs, skip, take }),
+        ctx.prisma.user.count({ where }),
+      ])
+      return paginatedResult(items, total, page, pageSize)
     }),
 
   get: protectedProcedure

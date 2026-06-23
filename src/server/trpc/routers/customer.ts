@@ -5,6 +5,7 @@ import { filterImportableRows } from '@/lib/amc-excel-parser'
 import { amcImportRowSchema } from '@/lib/amc-import-schema'
 import { createCustomerFromAmcRow, prepareCompaniesForImport, resolveOrCreateCompanyId } from '@/lib/customer-amc-create'
 import { normalizeImportRow } from '@/lib/amc-import-utils'
+import { paginatedResult, paginationFields, resolvePagination } from '@/lib/pagination'
 
 export const customerRouter = router({
   list: protectedProcedure
@@ -12,8 +13,10 @@ export const customerRouter = router({
       companyId: z.string().optional(),
       status: z.string().optional(),
       search: z.string().optional(),
+      ...paginationFields,
     }).optional())
     .query(async ({ ctx, input }) => {
+      const { page, pageSize, skip, take } = resolvePagination(input ?? undefined)
       const where: any = {}
       if (input?.companyId) where.companyId = input.companyId
       if (input?.status) where.status = input.status
@@ -24,16 +27,19 @@ export const customerRouter = router({
           { industry: { contains: input.search, mode: 'insensitive' } },
         ]
       }
-      return ctx.prisma.customer.findMany({
+      const queryArgs = {
         where,
         include: {
           company: { select: { id: true, name: true } },
-          locations: true,
-          contactPersons: true,
           _count: { select: { assets: true, contracts: true, tickets: true } },
         },
-        orderBy: { createdAt: 'desc' },
-      })
+        orderBy: { createdAt: 'desc' as const },
+      }
+      const [items, total] = await Promise.all([
+        ctx.prisma.customer.findMany({ ...queryArgs, skip, take }),
+        ctx.prisma.customer.count({ where }),
+      ])
+      return paginatedResult(items, total, page, pageSize)
     }),
 
   get: protectedProcedure

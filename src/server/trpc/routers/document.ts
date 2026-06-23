@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { protectedProcedure, router } from '../context'
+import { paginatedResult, paginationFields, resolvePagination } from '@/lib/pagination'
 
 export const documentRouter = router({
   list: protectedProcedure
@@ -10,8 +11,11 @@ export const documentRouter = router({
       invoiceId: z.string().optional(),
       ticketId: z.string().optional(),
       assetId: z.string().optional(),
+      search: z.string().optional(),
+      ...paginationFields,
     }).optional())
     .query(async ({ ctx, input }) => {
+      const { page, pageSize, skip, take } = resolvePagination(input ?? undefined)
       const where: any = {}
       if (input?.companyId) where.companyId = input.companyId
       if (input?.customerId) where.customerId = input.customerId
@@ -19,10 +23,18 @@ export const documentRouter = router({
       if (input?.invoiceId) where.invoiceId = input.invoiceId
       if (input?.ticketId) where.ticketId = input.ticketId
       if (input?.assetId) where.assetId = input.assetId
-      return ctx.prisma.document.findMany({
+      if (input?.search) {
+        where.name = { contains: input.search, mode: 'insensitive' }
+      }
+      const queryArgs = {
         where,
-        orderBy: { createdAt: 'desc' },
-      })
+        orderBy: { createdAt: 'desc' as const },
+      }
+      const [items, total] = await Promise.all([
+        ctx.prisma.document.findMany({ ...queryArgs, skip, take }),
+        ctx.prisma.document.count({ where }),
+      ])
+      return paginatedResult(items, total, page, pageSize)
     }),
 
   create: protectedProcedure

@@ -10,42 +10,66 @@ export const companyRouter = router({
   }),
 
   summary: protectedProcedure.query(async ({ ctx }) => {
-    const companies = await ctx.prisma.company.findMany({
-      where: { isActive: true },
-      orderBy: { name: 'asc' },
-    })
-
-    return Promise.all(companies.map(async (company) => {
-      const [customers, activeContracts, openTickets, pendingInvoices] = await Promise.all([
-        ctx.prisma.customer.count({ where: { companyId: company.id } }),
-        ctx.prisma.contract.count({ where: { companyId: company.id, status: 'ACTIVE' } }),
-        ctx.prisma.ticket.count({
-          where: {
-            companyId: company.id,
-            status: { in: ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'WAITING'] },
-          },
-        }),
-        ctx.prisma.invoice.count({
-          where: {
-            companyId: company.id,
-            status: { in: ['SENT', 'PARTIAL', 'OVERDUE'] },
-          },
-        }),
-      ])
-
-      const revenue = await ctx.prisma.invoice.aggregate({
-        where: { companyId: company.id, status: 'PAID' },
+    const [
+      companies,
+      customerCounts,
+      activeContractCounts,
+      openTicketCounts,
+      pendingInvoiceCounts,
+      revenueSums,
+    ] = await Promise.all([
+      ctx.prisma.company.findMany({
+        where: { isActive: true },
+        orderBy: { name: 'asc' },
+      }),
+      ctx.prisma.customer.groupBy({
+        by: ['companyId'],
+        _count: { _all: true },
+      }),
+      ctx.prisma.contract.groupBy({
+        by: ['companyId'],
+        where: { status: 'ACTIVE' },
+        _count: { _all: true },
+      }),
+      ctx.prisma.ticket.groupBy({
+        by: ['companyId'],
+        where: {
+          status: { in: ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'WAITING'] },
+        },
+        _count: { _all: true },
+      }),
+      ctx.prisma.invoice.groupBy({
+        by: ['companyId'],
+        where: {
+          status: { in: ['SENT', 'PARTIAL', 'OVERDUE'] },
+        },
+        _count: { _all: true },
+      }),
+      ctx.prisma.invoice.groupBy({
+        by: ['companyId'],
+        where: { status: 'PAID' },
         _sum: { totalAmount: true },
-      })
+      }),
+    ])
 
-      return {
-        ...company,
-        customers,
-        activeContracts,
-        openTickets,
-        pendingInvoices,
-        totalRevenue: revenue._sum.totalAmount ?? 0,
-      }
+    const countByCompany = (rows: { companyId: string; _count: { _all: number } }[]) =>
+      new Map(rows.map((row) => [row.companyId, row._count._all]))
+
+    const customersMap = countByCompany(customerCounts)
+    const contractsMap = countByCompany(activeContractCounts)
+    const ticketsMap = countByCompany(openTicketCounts)
+    const pendingMap = countByCompany(pendingInvoiceCounts)
+    const revenueMap = new Map(
+      revenueSums.map((row) => [row.companyId, row._sum.totalAmount ?? 0])
+    )
+
+    return companies.map((company) => ({
+      ...company,
+      customers: customersMap.get(company.id) ?? 0,
+      activeContracts: contractsMap.get(company.id) ?? 0,
+      openTickets: ticketsMap.get(company.id) ?? 0,
+      pendingInvoices: pendingMap.get(company.id) ?? 0,
+      totalRevenue: revenueMap.get(company.id) ?? 0,
     }))
   }),
 

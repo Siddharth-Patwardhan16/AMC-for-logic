@@ -2,13 +2,16 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
 import { Plus, Search, Users, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { FadeIn } from '@/components/ui/fade-in'
 import { trpc } from '@/components/providers'
 import { useCompany } from '@/components/company/company-context'
 import { CompanyBadge, CompanySelector } from '@/components/company/company-selector'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { useListPage } from '@/hooks/use-list-page'
+import { ListPagination } from '@/components/ui/list-pagination'
 
 const statusColors: Record<string, string> = {
   LEAD: 'text-[#4F8CFF] bg-[#4F8CFF]/10',
@@ -21,11 +24,7 @@ const statusColors: Record<string, string> = {
 
 function CustomerCard({ customer, i }: { customer: any; i: number }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: i * 0.05, duration: 0.3 }}
-    >
+    <FadeIn staggerIndex={i % 6}>
       <Link href={`/customers/${customer.id}`}>
         <div className="p-5 rounded-2xl bg-[#111111] border border-[#262626] hover:border-[#333333] transition-all duration-300 group cursor-pointer">
           <div className="flex items-start justify-between mb-4">
@@ -70,23 +69,28 @@ function CustomerCard({ customer, i }: { customer: any; i: number }) {
           </div>
         </div>
       </Link>
-    </motion.div>
+    </FadeIn>
   )
 }
 
 export default function CustomersPage() {
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search)
   const [status, setStatus] = useState('')
   const { companyFilter, isAllCompanies } = useCompany()
+  const { page, setPage } = useListPage(debouncedSearch, status, companyFilter)
 
-  const { data: customers } = trpc.customer.list.useQuery({
+  const { data } = trpc.customer.list.useQuery({
     companyId: companyFilter,
     status: status || undefined,
-    search: search || undefined,
+    search: debouncedSearch || undefined,
+    page,
   })
 
+  const customers = data?.items ?? []
+
   const groupedByCompany = useMemo(() => {
-    if (!isAllCompanies || !customers?.length) return null
+    if (!isAllCompanies || !customers.length) return null
     const map = new Map<string, { companyName: string; customers: typeof customers }>()
     for (const c of customers) {
       const key = c.company?.id ?? 'unknown'
@@ -103,7 +107,7 @@ export default function CustomersPage() {
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Customers</h1>
           <p className="text-sm text-[#A1A1AA] mt-1">
-            {customers?.length || 0} total
+            {data?.total ?? 0} total
             {isAllCompanies ? ' · all companies' : ' · filtered by company'}
           </p>
         </div>
@@ -159,13 +163,13 @@ export default function CustomersPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {customers?.map((customer, i) => (
+          {customers.map((customer, i) => (
             <CustomerCard key={customer.id} customer={customer} i={i} />
           ))}
         </div>
       )}
 
-      {customers?.length === 0 && (
+      {customers.length === 0 && (
         <div className="text-center py-16">
           <div className="h-12 w-12 rounded-2xl bg-[#171717] flex items-center justify-center mx-auto mb-4">
             <Users className="h-5 w-5 text-[#52525B]" />
@@ -174,6 +178,14 @@ export default function CustomersPage() {
           <p className="text-xs text-[#52525B] mt-1">Add your first customer, import from Excel, or set the company filter to &quot;All companies&quot;</p>
         </div>
       )}
+
+      <ListPagination
+        page={page}
+        totalPages={data?.totalPages ?? 1}
+        total={data?.total ?? 0}
+        pageSize={data?.pageSize ?? 24}
+        onPageChange={setPage}
+      />
     </div>
   )
 }

@@ -1,23 +1,26 @@
 'use client'
 
 import { useState } from 'react'
-import { motion } from 'framer-motion'
 import { Search, Building2, Pencil, Trash2, Check, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { FadeIn } from '@/components/ui/fade-in'
 import { trpc } from '@/components/providers'
 import { toast } from 'sonner'
+import { staticDataQueryOptions } from '@/lib/query-options'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 
 export default function SettingsPage() {
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search)
   const [editing, setEditing] = useState<string | null>(null)
   const [form, setForm] = useState({ name: '', gstin: '', pan: '', address: '', city: '', state: '', pincode: '', bankName: '', bankAccount: '', bankIfsc: '', invoicePrefix: 'INV', quotationPrefix: 'QOT' })
 
-  const { data: companies, refetch } = trpc.company.list.useQuery()
+  const { data: companies, refetch } = trpc.company.list.useQuery(undefined, staticDataQueryOptions)
   const create = trpc.company.create.useMutation({ onSuccess: () => { toast.success('Created'); refetch(); setEditing(null); } })
   const update = trpc.company.update.useMutation({ onSuccess: () => { toast.success('Updated'); refetch(); setEditing(null); } })
   const del = trpc.company.delete.useMutation({ onSuccess: () => { toast.success('Deleted'); refetch(); } })
 
-  const filtered = companies?.filter((c: any) => c.name.toLowerCase().includes(search.toLowerCase()))
+  const filtered = companies?.filter((c: any) => c.name.toLowerCase().includes(debouncedSearch.toLowerCase()))
 
   const startEdit = (c: any) => {
     setEditing(c.id)
@@ -53,7 +56,7 @@ export default function SettingsPage() {
 
       <div className="space-y-3">
         {filtered?.map((company: any) => (
-          <motion.div key={company.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 rounded-2xl bg-[#111111] border border-[#262626]">
+          <FadeIn key={company.id} className="p-4 rounded-2xl bg-[#111111] border border-[#262626]">
             {editing === company.id ? (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
@@ -94,12 +97,12 @@ export default function SettingsPage() {
                 </div>
               </div>
             )}
-          </motion.div>
+          </FadeIn>
         ))}
       </div>
 
       {editing === 'new' && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mt-3 p-4 rounded-2xl bg-[#111111] border border-[#262626]">
+        <FadeIn className="mt-3 p-4 rounded-2xl bg-[#111111] border border-[#262626]">
           <p className="text-sm font-medium text-white mb-3">New Company</p>
           <div className="grid grid-cols-2 gap-3">
             <Input placeholder="Company Name *" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} />
@@ -117,7 +120,7 @@ export default function SettingsPage() {
             <button onClick={() => setEditing(null)} className="px-3 py-1.5 rounded-lg text-xs text-[#A1A1AA] hover:text-white">Cancel</button>
             <button onClick={save} className="px-3 py-1.5 rounded-lg bg-[#22C55E] text-white text-xs font-medium">Create</button>
           </div>
-        </motion.div>
+        </FadeIn>
       )}
     </div>
   )

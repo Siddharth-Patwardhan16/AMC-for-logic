@@ -1,4 +1,3 @@
-import * as XLSX from 'xlsx'
 import {
   AMC_DEFAULT_COLUMN_MAP,
   type AmcColumnMap,
@@ -244,11 +243,12 @@ export type AmcParseResult = {
 }
 
 /** Parse AMC Working 26-27 style workbook (sheet Q1). */
-export function parseAmcWorkbook(buffer: ArrayBuffer): AmcImportRow[] {
-  return parseAmcWorkbookDetailed(buffer).rows
+export async function parseAmcWorkbook(buffer: ArrayBuffer): Promise<AmcImportRow[]> {
+  return (await parseAmcWorkbookDetailed(buffer)).rows
 }
 
-export function parseAmcWorkbookDetailed(buffer: ArrayBuffer): AmcParseResult {
+export async function parseAmcWorkbookDetailed(buffer: ArrayBuffer): Promise<AmcParseResult> {
+  const XLSX = await import('xlsx')
   const workbook = XLSX.read(buffer, { type: 'array' })
   const sheetName = workbook.SheetNames.includes('Q1') ? 'Q1' : workbook.SheetNames[0]
   const sheet = workbook.Sheets[sheetName]

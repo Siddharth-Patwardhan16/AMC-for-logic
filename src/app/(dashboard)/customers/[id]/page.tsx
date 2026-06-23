@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
+import { FadeIn } from '@/components/ui/fade-in'
 import { useParams } from 'next/navigation'
 import {
   ArrowLeft,
@@ -143,7 +143,7 @@ export default function CustomerDetailPage() {
       </Link>
 
       {/* Customer Header */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+      <FadeIn className="mb-8">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-4">
             <div className="h-14 w-14 rounded-2xl bg-[#4F8CFF]/10 flex items-center justify-center text-[#4F8CFF] text-xl font-bold">
@@ -173,10 +173,10 @@ export default function CustomerDetailPage() {
             )}
           </div>
         </div>
-      </motion.div>
+      </FadeIn>
 
       {/* Stats Bar */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+      <FadeIn delay={0.1} className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
         {[
           { icon: FileText, label: 'Contracts', value: customer.contracts?.length || 0, color: 'text-[#4F8CFF]' },
           { icon: HardDrive, label: 'Assets', value: customer.assets?.length || 0, color: 'text-[#22C55E]' },
@@ -191,10 +191,10 @@ export default function CustomerDetailPage() {
             <p className="text-xl font-bold text-white">{stat.value}</p>
           </div>
         ))}
-      </motion.div>
+      </FadeIn>
 
       {/* Tabs */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mb-6">
+      <FadeIn delay={0.2} className="mb-6">
         <div className="flex items-center gap-1 p-1 rounded-xl bg-[#111111] border border-[#262626] w-fit">
           {tabs.map((tab) => (
             <button
@@ -210,10 +210,10 @@ export default function CustomerDetailPage() {
             </button>
           ))}
         </div>
-      </motion.div>
+      </FadeIn>
 
       {/* Tab Content */}
-      <motion.div key={activeTab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
+      <FadeIn key={activeTab}>
         {activeTab === 'overview' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* AMC Status */}
@@ -408,7 +408,7 @@ export default function CustomerDetailPage() {
             )) || <p className="text-sm text-[#52525B]">No documents</p>}
           </div>
         )}
-      </motion.div>
+      </FadeIn>
     </div>
   )
 }

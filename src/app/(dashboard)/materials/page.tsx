@@ -1,12 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { motion } from 'framer-motion'
 import { Search, Package, Boxes } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { FadeIn } from '@/components/ui/fade-in'
 import { trpc } from '@/components/providers'
 import { useCompany } from '@/components/company/company-context'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { useListPage } from '@/hooks/use-list-page'
+import { ListPagination } from '@/components/ui/list-pagination'
 
 const categoryLabels: Record<string, string> = {
   SPARE_PART: 'Spare Part',
@@ -25,11 +28,15 @@ const statusColors: Record<string, string> = {
 
 export default function MaterialsPage() {
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search)
   const { companyFilter } = useCompany()
-  const { data: materials } = trpc.material.list.useQuery({
+  const { page, setPage } = useListPage(debouncedSearch, companyFilter)
+  const { data } = trpc.material.list.useQuery({
     companyId: companyFilter,
-    search: search || undefined,
+    search: debouncedSearch || undefined,
+    page,
   })
+  const materials = data?.items ?? []
 
   return (
     <div className="p-5 lg:p-8 max-w-[1400px] mx-auto">
@@ -49,12 +56,10 @@ export default function MaterialsPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {materials?.map((material, i) => (
-          <motion.div
+        {materials.map((material, i) => (
+          <FadeIn
             key={material.id}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.04 }}
+            staggerIndex={i % 6}
             className="p-5 rounded-2xl bg-[#111111] border border-[#262626] hover:border-[#333333] transition-all"
           >
             <div className="flex items-start justify-between mb-4">
@@ -85,16 +90,24 @@ export default function MaterialsPage() {
                 <span className="text-white">₹{Number(material.unitPrice).toFixed(2)}</span>
               </div>
             </div>
-          </motion.div>
+          </FadeIn>
         ))}
       </div>
 
-      {materials?.length === 0 && (
+      {materials.length === 0 && (
         <div className="text-center py-16">
           <Boxes className="h-12 w-12 text-[#52525B] mx-auto mb-4" />
           <p className="text-sm text-[#A1A1AA]">No materials found</p>
         </div>
       )}
+
+      <ListPagination
+        page={page}
+        totalPages={data?.totalPages ?? 1}
+        total={data?.total ?? 0}
+        pageSize={data?.pageSize ?? 24}
+        onPageChange={setPage}
+      />
     </div>
   )
 }

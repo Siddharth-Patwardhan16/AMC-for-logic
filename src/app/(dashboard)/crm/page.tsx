@@ -1,12 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { motion } from 'framer-motion'
 import { Plus, Search, Megaphone, Phone, CheckCircle, ArrowRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { FadeIn } from '@/components/ui/fade-in'
 import { trpc } from '@/components/providers'
 import { toast } from 'sonner'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { useListPage } from '@/hooks/use-list-page'
+import { ListPagination } from '@/components/ui/list-pagination'
 
 const statusColors: Record<string, string> = {
   PENDING: 'text-[#EAB308] bg-[#EAB308]/10',
@@ -26,11 +29,16 @@ const typeLabels: Record<string, string> = {
 
 export default function CRMPage() {
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search)
   const [status, setStatus] = useState('')
+  const { page, setPage } = useListPage(debouncedSearch, status)
 
-  const { data: activities, refetch } = trpc.crm.listActivities.useQuery({
+  const { data, refetch } = trpc.crm.listActivities.useQuery({
     status: status || undefined,
+    search: debouncedSearch || undefined,
+    page,
   })
+  const activities = data?.items ?? []
 
   const { data: pipeline } = trpc.crm.pipeline.useQuery()
 
@@ -41,10 +49,7 @@ export default function CRMPage() {
     },
   })
 
-  const filtered = activities?.filter((a: any) =>
-    a.subject.toLowerCase().includes(search.toLowerCase()) ||
-    a.customer?.name?.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = activities
 
   const stages = [
     { label: 'Leads', value: pipeline?.leads || 0, color: 'bg-[#4F8CFF]/10 text-[#4F8CFF]' },
@@ -101,13 +106,8 @@ export default function CRMPage() {
 
       {/* Activities */}
       <div className="space-y-2">
-        {filtered?.map((activity: any, i: number) => (
-          <motion.div
-            key={activity.id}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.03, duration: 0.25 }}
-          >
+        {filtered.map((activity: any, i: number) => (
+          <FadeIn key={activity.id} staggerIndex={i % 6}>
             <div className="p-4 rounded-2xl bg-[#111111] border border-[#262626] flex items-center gap-4">
               <div className="h-10 w-10 rounded-xl bg-[#4F8CFF]/10 flex items-center justify-center flex-shrink-0">
                 <Megaphone className="h-4 w-4 text-[#4F8CFF]" />
@@ -131,11 +131,11 @@ export default function CRMPage() {
                 </button>
               )}
             </div>
-          </motion.div>
+          </FadeIn>
         ))}
       </div>
 
-      {filtered?.length === 0 && (
+      {filtered.length === 0 && (
         <div className="text-center py-16">
           <div className="h-12 w-12 rounded-2xl bg-[#171717] flex items-center justify-center mx-auto mb-4">
             <Megaphone className="h-5 w-5 text-[#52525B]" />
@@ -144,6 +144,14 @@ export default function CRMPage() {
           <p className="text-xs text-[#52525B] mt-1">Add your first CRM activity</p>
         </div>
       )}
+
+      <ListPagination
+        page={page}
+        totalPages={data?.totalPages ?? 1}
+        total={data?.total ?? 0}
+        pageSize={data?.pageSize ?? 24}
+        onPageChange={setPage}
+      />
     </div>
   )
 }

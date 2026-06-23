@@ -18,6 +18,7 @@ import {
   type AmcBillingFormValues,
 } from '@/components/customers/amc-billing-fields'
 import { useCompany } from '@/components/company/company-context'
+import { staticDataQueryOptions } from '@/lib/query-options'
 
 type Tab = 'manual' | 'import'
 
@@ -49,7 +50,7 @@ export default function NewCustomerPage() {
 
   const { setSelectedCompanyId } = useCompany()
   const utils = trpc.useUtils()
-  const { data: companies } = trpc.company.list.useQuery()
+  const { data: companies } = trpc.company.list.useQuery(undefined, staticDataQueryOptions)
   const createMutation = trpc.customer.create.useMutation({
     onSuccess: (customer) => {
       toast.success('Customer created')
@@ -102,7 +103,7 @@ export default function NewCustomerPage() {
     if (!file) return
     try {
       const buffer = await file.arrayBuffer()
-      const rows = parseAmcWorkbook(buffer)
+      const rows = await parseAmcWorkbook(buffer)
       if (!rows.length) {
         toast.error('No customer rows found in this file')
         return

@@ -3,9 +3,9 @@
 import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { motion } from 'framer-motion'
 import { Search, ArrowRight, Users, HardDrive, Receipt, FileText } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { FadeIn } from '@/components/ui/fade-in'
 
 function SearchContent() {
   const router = useRouter()
@@ -29,7 +29,7 @@ function SearchContent() {
 
   return (
     <div className="p-5 lg:p-8 max-w-[800px] mx-auto">
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+      <FadeIn>
         <h1 className="text-2xl font-bold text-white tracking-tight mb-6">Search</h1>
 
         <form onSubmit={handleSearch} className="mb-8">
@@ -112,7 +112,7 @@ function SearchContent() {
             ))}
           </div>
         </div>
-      </motion.div>
+      </FadeIn>
     </div>
   )
 }

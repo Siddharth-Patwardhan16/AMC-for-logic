@@ -1,10 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { motion } from 'framer-motion'
 import { Search, FolderOpen, File, Image, FileText } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { FadeIn } from '@/components/ui/fade-in'
 import { trpc } from '@/components/providers'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { useListPage } from '@/hooks/use-list-page'
+import { ListPagination } from '@/components/ui/list-pagination'
 
 const fileIcons: Record<string, any> = {
   pdf: FileText,
@@ -20,12 +23,14 @@ const fileIcons: Record<string, any> = {
 
 export default function DocumentsPage() {
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search)
+  const { page, setPage } = useListPage(debouncedSearch)
 
-  const { data: documents } = trpc.document.list.useQuery()
-
-  const filtered = documents?.filter((d: any) =>
-    d.name.toLowerCase().includes(search.toLowerCase())
-  )
+  const { data } = trpc.document.list.useQuery({
+    search: debouncedSearch || undefined,
+    page,
+  })
+  const documents = data?.items ?? []
 
   return (
     <div className="p-5 lg:p-8 max-w-[1400px] mx-auto">
@@ -45,16 +50,11 @@ export default function DocumentsPage() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {filtered?.map((doc: any, i: number) => {
+        {documents.map((doc: any, i: number) => {
           const ext = doc.fileType.toLowerCase()
           const Icon = fileIcons[ext] || fileIcons.default
           return (
-            <motion.div
-              key={doc.id}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.04, duration: 0.3 }}
-            >
+            <FadeIn key={doc.id} staggerIndex={i % 6}>
               <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
                 <div className="p-4 rounded-2xl bg-[#111111] border border-[#262626] hover:border-[#333333] transition-all duration-300 cursor-pointer">
                   <div className="flex items-start gap-3">
@@ -68,12 +68,12 @@ export default function DocumentsPage() {
                   </div>
                 </div>
               </a>
-            </motion.div>
+            </FadeIn>
           )
         })}
       </div>
 
-      {filtered?.length === 0 && (
+      {documents.length === 0 && (
         <div className="text-center py-16">
           <div className="h-12 w-12 rounded-2xl bg-[#171717] flex items-center justify-center mx-auto mb-4">
             <FolderOpen className="h-5 w-5 text-[#52525B]" />
@@ -82,6 +82,14 @@ export default function DocumentsPage() {
           <p className="text-xs text-[#52525B] mt-1">Upload your first document</p>
         </div>
       )}
+
+      <ListPagination
+        page={page}
+        totalPages={data?.totalPages ?? 1}
+        total={data?.total ?? 0}
+        pageSize={data?.pageSize ?? 24}
+        onPageChange={setPage}
+      />
     </div>
   )
 }

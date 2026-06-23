@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { protectedProcedure, router } from '../context'
+import { paginatedResult, paginationFields, resolvePagination } from '@/lib/pagination'
 
 export const assetRouter = router({
   list: protectedProcedure
@@ -9,8 +10,10 @@ export const assetRouter = router({
       assetType: z.string().optional(),
       status: z.string().optional(),
       search: z.string().optional(),
+      ...paginationFields,
     }).optional())
     .query(async ({ ctx, input }) => {
+      const { page, pageSize, skip, take } = resolvePagination(input ?? undefined)
       const where: any = {}
       if (input?.companyId) where.companyId = input.companyId
       if (input?.customerId) where.customerId = input.customerId
@@ -23,15 +26,20 @@ export const assetRouter = router({
           { model: { contains: input.search, mode: 'insensitive' } },
         ]
       }
-      return ctx.prisma.asset.findMany({
+      const queryArgs = {
         where,
         include: {
           customer: { select: { id: true, name: true } },
           customerLocation: { select: { id: true, name: true } },
           _count: { select: { tickets: true } },
         },
-        orderBy: { createdAt: 'desc' },
-      })
+        orderBy: { createdAt: 'desc' as const },
+      }
+      const [items, total] = await Promise.all([
+        ctx.prisma.asset.findMany({ ...queryArgs, skip, take }),
+        ctx.prisma.asset.count({ where }),
+      ])
+      return paginatedResult(items, total, page, pageSize)
     }),
 
   get: protectedProcedure

@@ -2,12 +2,14 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
 import { Plus, Search, FileText, ArrowRight } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
+import { FadeIn } from '@/components/ui/fade-in'
 import { trpc } from '@/components/providers'
 import { useCompany } from '@/components/company/company-context'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { useListPage } from '@/hooks/use-list-page'
+import { ListPagination } from '@/components/ui/list-pagination'
 
 const typeLabels: Record<string, string> = {
   QUARTERLY_AMC: 'Quarterly AMC',
@@ -27,15 +29,20 @@ const statusColors: Record<string, string> = {
 
 export default function ContractsPage() {
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search)
   const [contractType, setContractType] = useState('')
   const [status, setStatus] = useState('')
   const { companyFilter } = useCompany()
+  const { page, setPage } = useListPage(debouncedSearch, contractType, status, companyFilter)
 
-  const { data: contracts } = trpc.contract.list.useQuery({
+  const { data } = trpc.contract.list.useQuery({
     companyId: companyFilter,
     contractType: contractType || undefined,
     status: status || undefined,
+    search: debouncedSearch || undefined,
+    page,
   })
+  const contracts = data?.items ?? []
 
   return (
     <div className="p-5 lg:p-8 max-w-[1400px] mx-auto">
@@ -78,13 +85,8 @@ export default function ContractsPage() {
       </div>
 
       <div className="space-y-3">
-        {contracts?.map((contract, i) => (
-          <motion.div
-            key={contract.id}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.03, duration: 0.25 }}
-          >
+        {contracts.map((contract, i) => (
+          <FadeIn key={contract.id} staggerIndex={i % 6}>
             <Link href={`/contracts/${contract.id}`}>
               <div className="p-4 rounded-2xl bg-[#111111] border border-[#262626] hover:border-[#333333] transition-all duration-300 group cursor-pointer flex items-center gap-4">
                 <div className="h-10 w-10 rounded-xl bg-[#A855F7]/10 flex items-center justify-center flex-shrink-0">
@@ -110,11 +112,11 @@ export default function ContractsPage() {
                 <ArrowRight className="h-4 w-4 text-[#52525B] group-hover:text-[#4F8CFF] group-hover:translate-x-0.5 transition-all flex-shrink-0" />
               </div>
             </Link>
-          </motion.div>
+          </FadeIn>
         ))}
       </div>
 
-      {contracts?.length === 0 && (
+      {contracts.length === 0 && (
         <div className="text-center py-16">
           <div className="h-12 w-12 rounded-2xl bg-[#171717] flex items-center justify-center mx-auto mb-4">
             <FileText className="h-5 w-5 text-[#52525B]" />
@@ -123,6 +125,14 @@ export default function ContractsPage() {
           <p className="text-xs text-[#52525B] mt-1">Create your first contract</p>
         </div>
       )}
+
+      <ListPagination
+        page={page}
+        totalPages={data?.totalPages ?? 1}
+        total={data?.total ?? 0}
+        pageSize={data?.pageSize ?? 24}
+        onPageChange={setPage}
+      />
     </div>
   )
 }

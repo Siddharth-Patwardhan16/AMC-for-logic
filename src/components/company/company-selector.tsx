@@ -2,12 +2,13 @@
 
 import { Building2, ChevronDown } from 'lucide-react'
 import { trpc } from '@/components/providers'
+import { staticDataQueryOptions } from '@/lib/query-options'
 import { useCompany } from './company-context'
 import { cn } from '@/lib/utils'
 
 export function CompanySelector({ className }: { className?: string }) {
   const { selectedCompanyId, setSelectedCompanyId, isAllCompanies } = useCompany()
-  const { data: companies } = trpc.company.list.useQuery()
+  const { data: companies } = trpc.company.list.useQuery(undefined, staticDataQueryOptions)
 
   const selectedName = isAllCompanies
     ? 'All companies'

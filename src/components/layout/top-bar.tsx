@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, Plus, Bell, LogOut, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { motion, AnimatePresence } from 'framer-motion'
 import { signOut } from 'next-auth/react'
 import { CompanySelector } from '@/components/company/company-selector'
 
@@ -90,23 +89,15 @@ export function TopBar({ user }: { user: any }) {
       </header>
 
       {/* Global Search Modal */}
-      <AnimatePresence>
-        {searchOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center pt-[15vh]"
-            onClick={() => setSearchOpen(false)}
+      {searchOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center pt-[15vh] animate-in"
+          onClick={() => setSearchOpen(false)}
+        >
+          <div
+            className="w-full max-w-[560px] mx-4 animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
           >
-            <motion.div
-              initial={{ opacity: 0, y: -20, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -20, scale: 0.96 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="w-full max-w-[560px] mx-4"
-              onClick={(e) => e.stopPropagation()}
-            >
               <form onSubmit={handleSearch}>
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#A1A1AA]" />
@@ -140,10 +131,9 @@ export function TopBar({ user }: { user: any }) {
                   ))}
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+        </div>
+      )}
     </>
   )
 }

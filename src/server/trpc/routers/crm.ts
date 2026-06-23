@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { protectedProcedure, router } from '../context'
+import { paginatedResult, paginationFields, resolvePagination } from '@/lib/pagination'
 
 export const crmRouter = router({
   listActivities: protectedProcedure
@@ -7,19 +8,33 @@ export const crmRouter = router({
       customerId: z.string().optional(),
       activityType: z.string().optional(),
       status: z.string().optional(),
+      search: z.string().optional(),
+      ...paginationFields,
     }).optional())
     .query(async ({ ctx, input }) => {
+      const { page, pageSize, skip, take } = resolvePagination(input ?? undefined)
       const where: any = {}
       if (input?.customerId) where.customerId = input.customerId
       if (input?.activityType) where.activityType = input.activityType
       if (input?.status) where.status = input.status
-      return ctx.prisma.cRMActivity.findMany({
+      if (input?.search) {
+        where.OR = [
+          { subject: { contains: input.search, mode: 'insensitive' } },
+          { customer: { name: { contains: input.search, mode: 'insensitive' } } },
+        ]
+      }
+      const queryArgs = {
         where,
         include: {
           customer: { select: { id: true, name: true } },
         },
-        orderBy: { scheduledAt: 'desc' },
-      })
+        orderBy: { scheduledAt: 'desc' as const },
+      }
+      const [items, total] = await Promise.all([
+        ctx.prisma.cRMActivity.findMany({ ...queryArgs, skip, take }),
+        ctx.prisma.cRMActivity.count({ where }),
+      ])
+      return paginatedResult(items, total, page, pageSize)
     }),
 
   createActivity: protectedProcedure

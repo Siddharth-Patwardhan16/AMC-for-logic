@@ -2,12 +2,14 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
 import { Plus, Search, HardDrive, ArrowRight } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
+import { FadeIn } from '@/components/ui/fade-in'
 import { trpc } from '@/components/providers'
 import { useCompany } from '@/components/company/company-context'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { useListPage } from '@/hooks/use-list-page'
+import { ListPagination } from '@/components/ui/list-pagination'
 
 const typeColors: Record<string, string> = {
   SERVER: 'text-[#4F8CFF] bg-[#4F8CFF]/10',
@@ -28,23 +30,27 @@ const typeColors: Record<string, string> = {
 
 export default function AssetsPage() {
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search)
   const [assetType, setAssetType] = useState('')
   const [status, setStatus] = useState('')
   const { companyFilter } = useCompany()
+  const { page, setPage } = useListPage(debouncedSearch, assetType, status, companyFilter)
 
-  const { data: assets } = trpc.asset.list.useQuery({
+  const { data } = trpc.asset.list.useQuery({
     companyId: companyFilter,
     assetType: assetType || undefined,
     status: status || undefined,
-    search: search || undefined,
+    search: debouncedSearch || undefined,
+    page,
   })
+  const assets = data?.items ?? []
 
   return (
     <div className="p-5 lg:p-8 max-w-[1400px] mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Assets</h1>
-          <p className="text-sm text-[#A1A1AA] mt-1">{assets?.length || 0} under management</p>
+          <p className="text-sm text-[#A1A1AA] mt-1">{data?.total ?? 0} under management</p>
         </div>
         <Link href="/assets/new">
           <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#4F8CFF] hover:bg-[#4F8CFF]/90 text-white text-sm font-medium transition-all active:scale-[0.98]">
@@ -83,13 +89,8 @@ export default function AssetsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {assets?.map((asset, i) => (
-          <motion.div
-            key={asset.id}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.04, duration: 0.3 }}
-          >
+        {assets.map((asset, i) => (
+          <FadeIn key={asset.id} staggerIndex={i % 6}>
             <Link href={`/assets/${asset.id}`}>
               <div className="p-5 rounded-2xl bg-[#111111] border border-[#262626] hover:border-[#333333] transition-all duration-300 group cursor-pointer">
                 <div className="flex items-start justify-between mb-4">
@@ -112,11 +113,11 @@ export default function AssetsPage() {
                 </div>
               </div>
             </Link>
-          </motion.div>
+          </FadeIn>
         ))}
       </div>
 
-      {assets?.length === 0 && (
+      {assets.length === 0 && (
         <div className="text-center py-16">
           <div className="h-12 w-12 rounded-2xl bg-[#171717] flex items-center justify-center mx-auto mb-4">
             <HardDrive className="h-5 w-5 text-[#52525B]" />
@@ -125,6 +126,14 @@ export default function AssetsPage() {
           <p className="text-xs text-[#52525B] mt-1">Add your first asset</p>
         </div>
       )}
+
+      <ListPagination
+        page={page}
+        totalPages={data?.totalPages ?? 1}
+        total={data?.total ?? 0}
+        pageSize={data?.pageSize ?? 24}
+        onPageChange={setPage}
+      />
     </div>
   )
 }

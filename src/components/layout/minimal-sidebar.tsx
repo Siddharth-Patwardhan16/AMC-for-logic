@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard,
   Users,
@@ -41,20 +40,15 @@ export function MinimalSidebar() {
         {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
       </button>
 
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setMobileOpen(false)}
-            className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm"
-          />
-        )}
-      </AnimatePresence>
+      {mobileOpen && (
+        <div
+          onClick={() => setMobileOpen(false)}
+          className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm animate-in"
+        />
+      )}
 
       {/* Sidebar */}
-      <motion.aside
+      <aside
         className={cn(
           'fixed left-0 top-0 z-40 h-screen bg-[#0A0A0A] border-r border-[#262626] flex flex-col transition-all duration-300',
           'w-[200px]',
@@ -88,11 +82,7 @@ export function MinimalSidebar() {
                 )}
               >
                 {active && (
-                  <motion.div
-                    layoutId="activeNav"
-                    className="absolute inset-0 rounded-xl bg-[#171717]"
-                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                  />
+                  <div className="absolute inset-0 rounded-xl bg-[#171717]" />
                 )}
                 <item.icon className={cn('h-4 w-4 relative z-10', active ? 'text-[#4F8CFF]' : '')} />
                 <span className="relative z-10">{item.name}</span>
@@ -110,7 +100,7 @@ export function MinimalSidebar() {
             Press <kbd className="px-1.5 py-0.5 rounded bg-[#171717] text-[#F5F5F5] text-[10px] font-mono">/</kbd> to search
           </div>
         </div>
-      </motion.aside>
+      </aside>
     </>
   )
 }

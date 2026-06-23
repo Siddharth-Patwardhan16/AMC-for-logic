@@ -3,10 +3,10 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { signIn } from 'next-auth/react'
-import { motion } from 'framer-motion'
 import { Building2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { FadeIn } from '@/components/ui/fade-in'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -26,7 +26,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A] p-4">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="w-full max-w-[380px]">
+      <FadeIn className="w-full max-w-[380px]">
         <div className="flex items-center justify-center mb-10">
           <div className="h-10 w-10 rounded-xl bg-[#4F8CFF]/10 flex items-center justify-center mr-3">
             <div className="h-4 w-4 rounded-sm bg-[#4F8CFF]" />
@@ -41,9 +41,9 @@ export default function LoginPage() {
           <p className="text-sm text-[#A1A1AA] mb-6">Sign in to your account</p>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="p-3 rounded-xl bg-[#EF4444]/10 text-[#EF4444] text-xs">
+              <div className="p-3 rounded-xl bg-[#EF4444]/10 text-[#EF4444] text-xs animate-in">
                 {error}
-              </motion.div>
+              </div>
             )}
             <div>
               <label className="text-xs text-[#A1A1AA] mb-1.5 block">Email</label>
@@ -64,7 +64,7 @@ export default function LoginPage() {
             <p>admin@example.com / admin123</p>
           </div>
         </div>
-      </motion.div>
+      </FadeIn>
     </div>
   )
 }

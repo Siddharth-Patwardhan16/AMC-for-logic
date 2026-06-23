@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { protectedProcedure, router } from '../context'
+import { paginatedResult, paginationFields, resolvePagination } from '@/lib/pagination'
 
 export const invoiceRouter = router({
   list: protectedProcedure
@@ -9,8 +10,10 @@ export const invoiceRouter = router({
       invoiceType: z.string().optional(),
       status: z.string().optional(),
       search: z.string().optional(),
+      ...paginationFields,
     }).optional())
     .query(async ({ ctx, input }) => {
+      const { page, pageSize, skip, take } = resolvePagination(input ?? undefined)
       const where: any = {}
       if (input?.companyId) where.companyId = input.companyId
       if (input?.customerId) where.customerId = input.customerId
@@ -22,15 +25,20 @@ export const invoiceRouter = router({
           { customer: { name: { contains: input.search, mode: 'insensitive' } } },
         ]
       }
-      return ctx.prisma.invoice.findMany({
+      const queryArgs = {
         where,
         include: {
           customer: { select: { id: true, name: true } },
           contract: { select: { id: true, contractNumber: true } },
           _count: { select: { items: true, payments: true } },
         },
-        orderBy: { createdAt: 'desc' },
-      })
+        orderBy: { createdAt: 'desc' as const },
+      }
+      const [items, total] = await Promise.all([
+        ctx.prisma.invoice.findMany({ ...queryArgs, skip, take }),
+        ctx.prisma.invoice.count({ where }),
+      ])
+      return paginatedResult(items, total, page, pageSize)
     }),
 
   get: protectedProcedure

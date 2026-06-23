@@ -1,18 +1,16 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import Link from 'next/link'
 import { Users, HardDrive, FileText, AlertTriangle, ArrowUpRight, TrendingUp, Clock } from 'lucide-react'
 import { trpc } from '@/components/providers'
-import Link from 'next/link'
+import { FadeIn } from '@/components/ui/fade-in'
 import { useCompany } from '@/components/company/company-context'
 import { CompanyBadge } from '@/components/company/company-selector'
+import { listQueryOptions } from '@/lib/query-options'
 
-const container = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } }
-const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }
-
-function StatCard({ icon: Icon, label, value, subtext, color, delay }: any) {
+function StatCard({ icon: Icon, label, value, subtext, color, staggerIndex }: any) {
   return (
-    <motion.div variants={item} className={`animate-in stagger-${delay}`}>
+    <FadeIn staggerIndex={staggerIndex}>
       <div className="p-5 rounded-2xl bg-[#111111] border border-[#262626] hover:border-[#333333] transition-all duration-300 group">
         <div className="flex items-center justify-between mb-4">
           <div className={`h-9 w-9 rounded-xl flex items-center justify-center ${color}`}>
@@ -24,17 +22,19 @@ function StatCard({ icon: Icon, label, value, subtext, color, delay }: any) {
         <p className="text-sm text-[#A1A1AA] mt-0.5">{label}</p>
         {subtext && <p className="text-[11px] text-[#52525B] mt-2">{subtext}</p>}
       </div>
-    </motion.div>
+    </FadeIn>
   )
 }
 
 export default function DashboardPage() {
   const { companyFilter, isAllCompanies } = useCompany()
   const { data: stats } = trpc.dashboard.stats.useQuery(
-    companyFilter ? { companyId: companyFilter } : undefined
+    companyFilter ? { companyId: companyFilter } : undefined,
+    listQueryOptions
   )
   const { data: companySummaries } = trpc.company.summary.useQuery(undefined, {
     enabled: isAllCompanies,
+    ...listQueryOptions,
   })
 
   const statCards = [
@@ -46,16 +46,15 @@ export default function DashboardPage() {
 
   return (
     <div className="p-5 lg:p-8 max-w-[1400px] mx-auto">
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+      <FadeIn className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight text-white">Overview</h1>
         <p className="text-sm text-[#A1A1AA] mt-1">
           {isAllCompanies ? 'All companies · use the top bar to filter one' : 'Filtered by selected company'}
         </p>
-      </motion.div>
+      </FadeIn>
 
       {isAllCompanies && companySummaries && companySummaries.length > 1 && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+        <FadeIn className="mb-8">
           <h2 className="text-sm font-semibold text-white mb-3">By company</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {companySummaries.map((co) => (
@@ -81,20 +80,17 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
-        </motion.div>
+        </FadeIn>
       )}
 
-      {/* Stats Grid */}
-      <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {statCards.map((card, i) => (
-          <StatCard key={card.label} {...card} delay={i + 1} />
+          <StatCard key={card.label} {...card} staggerIndex={i} />
         ))}
-      </motion.div>
+      </div>
 
-      {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Expiring Contracts */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="lg:col-span-2">
+        <FadeIn delay={0.3} className="lg:col-span-2">
           <div className="p-5 rounded-2xl bg-[#111111] border border-[#262626]">
             <div className="flex items-center justify-between mb-5">
               <div>
@@ -127,10 +123,9 @@ export default function DashboardPage() {
               )}
             </div>
           </div>
-        </motion.div>
+        </FadeIn>
 
-        {/* Revenue */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+        <FadeIn delay={0.4}>
           <div className="p-5 rounded-2xl bg-[#111111] border border-[#262626]">
             <div className="mb-5">
               <h2 className="text-lg font-semibold text-white">Revenue</h2>
@@ -154,18 +149,16 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-        </motion.div>
+        </FadeIn>
       </div>
 
-      {/* Bottom section: Recent activity */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="mt-6">
+      <FadeIn delay={0.5} className="mt-6">
         <div className="p-5 rounded-2xl bg-[#111111] border border-[#262626]">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-white">Recent Activity</h2>
             <Link href="/search" className="text-xs text-[#4F8CFF] hover:underline">View all</Link>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Recent Customers */}
             <div>
               <p className="text-[11px] text-[#52525B] uppercase tracking-wider font-medium mb-3">New Customers</p>
               <div className="space-y-2">
@@ -177,7 +170,6 @@ export default function DashboardPage() {
                 )) || <p className="text-sm text-[#52525B]">No recent activity</p>}
               </div>
             </div>
-            {/* Recent Tickets */}
             <div>
               <p className="text-[11px] text-[#52525B] uppercase tracking-wider font-medium mb-3">Open Tickets</p>
               <div className="space-y-2">
@@ -191,7 +183,6 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
-            {/* Quick Links */}
             <div>
               <p className="text-[11px] text-[#52525B] uppercase tracking-wider font-medium mb-3">Quick Actions</p>
               <div className="flex flex-wrap gap-2">
@@ -208,7 +199,7 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-      </motion.div>
+      </FadeIn>
     </div>
   )
 }

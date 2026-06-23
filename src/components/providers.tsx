@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { SessionProvider } from 'next-auth/react'
 import { httpBatchLink } from '@trpc/client'
 import { createTRPCReact } from '@trpc/react-query'
 import { type AppRouter } from '@/server/trpc/router'
@@ -15,8 +14,10 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 5000,
+        staleTime: 60_000,
+        gcTime: 10 * 60_000,
         refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
       },
     },
   }))
@@ -37,15 +38,13 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
   )
 
   return (
-    <SessionProvider>
-      <trpc.Provider client={trpcClient} queryClient={queryClient}>
-        <QueryClientProvider client={queryClient}>
-          <CompanyProvider>
-            <CompanyFilterSync />
-            {children}
-          </CompanyProvider>
-        </QueryClientProvider>
-      </trpc.Provider>
-    </SessionProvider>
+    <trpc.Provider client={trpcClient} queryClient={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <CompanyProvider>
+          <CompanyFilterSync />
+          {children}
+        </CompanyProvider>
+      </QueryClientProvider>
+    </trpc.Provider>
   )
 }

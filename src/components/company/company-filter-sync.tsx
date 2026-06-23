@@ -2,12 +2,13 @@
 
 import { useEffect } from 'react'
 import { trpc } from '@/components/providers'
+import { staticDataQueryOptions } from '@/lib/query-options'
 import { useCompany } from './company-context'
 
 /** Clear stored company filter when it points at a deleted or unknown company. */
 export function CompanyFilterSync() {
   const { selectedCompanyId, setSelectedCompanyId } = useCompany()
-  const { data: companies } = trpc.company.list.useQuery()
+  const { data: companies } = trpc.company.list.useQuery(undefined, staticDataQueryOptions)
 
   useEffect(() => {
     if (selectedCompanyId == null || companies == null) return
