@@ -8,6 +8,8 @@ import {
   syncScheduleInstallments,
 } from '@/lib/amc-schedule-sync'
 import type { LineItemInput } from '@/lib/amc-billing'
+import { paginatedResult, paginationFields, resolvePagination } from '@/lib/pagination'
+import { customerPaymentSummaries, quarterPaymentStatus } from '@/lib/amc-payment-utils'
 
 const lineItemAddonSchema = z.object({
   name: z.string().min(1),
@@ -32,8 +34,9 @@ const lineItemSchema = z.object({
 })
 
 const installmentStatus = (amount: number, paid: number, dueDate: Date) => {
-  if (paid >= amount) return 'PAID' as const
-  if (new Date() > dueDate) return 'OVERDUE' as const
+  const status = quarterPaymentStatus(amount, paid, dueDate)
+  if (status === 'PAID') return 'PAID' as const
+  if (status === 'OVERDUE') return 'OVERDUE' as const
   return 'PENDING' as const
 }
 
@@ -408,5 +411,141 @@ export const amcScheduleRouter = router({
       }
 
       return { success: true }
+    }),
+
+  customerPaymentBoard: protectedProcedure
+    .input(z.object({
+      companyId: z.string().optional(),
+      search: z.string().optional(),
+      ...paginationFields,
+    }).optional())
+    .query(async ({ ctx, input }) => {
+      const { page, pageSize, skip, take } = resolvePagination(input ?? undefined)
+      const where: Record<string, unknown> = {}
+      if (input?.companyId) where.companyId = input.companyId
+      if (input?.search?.trim()) {
+        where.OR = [
+          { name: { contains: input.search.trim(), mode: 'insensitive' } },
+          { gst: { contains: input.search.trim(), mode: 'insensitive' } },
+        ]
+      }
+
+      const queryArgs = {
+        where,
+        include: {
+          company: { select: { id: true, name: true } },
+          amcSchedules: {
+            include: {
+              company: { select: { name: true } },
+              installments: { orderBy: { quarter: 'asc' as const } },
+            },
+            orderBy: { fiscalYear: 'desc' as const },
+          },
+          _count: { select: { invoices: true, quotations: true } },
+        },
+        orderBy: { name: 'asc' as const },
+      }
+
+      const [customers, total] = await Promise.all([
+        ctx.prisma.customer.findMany({ ...queryArgs, skip, take }),
+        ctx.prisma.customer.count({ where }),
+      ])
+
+      const items = customers.map((customer) => {
+        const payment = customerPaymentSummaries(customer.amcSchedules as any)
+        return {
+          id: customer.id,
+          name: customer.name,
+          gst: customer.gst,
+          status: customer.status,
+          company: customer.company,
+          invoiceCount: customer._count.invoices,
+          quotationCount: customer._count.quotations,
+          outstanding: payment.outstanding,
+          overdueQuarters: payment.overdueQuarters,
+          schedules: payment.schedules,
+        }
+      })
+
+      return paginatedResult(items, total, page, pageSize)
+    }),
+
+  paymentReminders: protectedProcedure
+    .input(z.object({
+      companyId: z.string().optional(),
+      daysAhead: z.number().int().min(1).max(180).default(45),
+    }).optional())
+    .query(async ({ ctx, input }) => {
+      const now = new Date()
+      const horizon = new Date()
+      horizon.setDate(horizon.getDate() + (input?.daysAhead ?? 45))
+
+      const installments = await ctx.prisma.amcQuarterInstallment.findMany({
+        where: {
+          schedule: input?.companyId ? { companyId: input.companyId } : undefined,
+        },
+        include: {
+          schedule: {
+            include: {
+              customer: {
+                select: {
+                  id: true,
+                  name: true,
+                  company: { select: { name: true } },
+                },
+              },
+              company: { select: { name: true } },
+            },
+          },
+        },
+        orderBy: { dueDate: 'asc' },
+      })
+
+      const reminders = installments
+        .map((inst) => {
+          const amount = Number(inst.amount)
+          const paid = Number(inst.paidAmount)
+          const balance = Math.max(0, amount - paid)
+          if (balance <= 0) return null
+
+          const status = quarterPaymentStatus(amount, paid, inst.dueDate)
+          const dueDate = new Date(inst.dueDate)
+          const isUpcoming = dueDate >= now && dueDate <= horizon
+          const isOverdue = status === 'OVERDUE'
+
+          if (!isUpcoming && !isOverdue) return null
+
+          const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+
+          return {
+            id: inst.id,
+            quarter: inst.quarter,
+            label: inst.label,
+            dueDate: inst.dueDate,
+            amount,
+            paid,
+            balance,
+            status,
+            daysUntilDue,
+            customer: inst.schedule.customer,
+            fiscalYear: inst.schedule.fiscalYear,
+            section: inst.schedule.section,
+            scheduleCompany: inst.schedule.company?.name ?? null,
+          }
+        })
+        .filter(Boolean)
+
+      reminders.sort((a, b) => {
+        if (!a || !b) return 0
+        if (a.status === 'OVERDUE' && b.status !== 'OVERDUE') return -1
+        if (b.status === 'OVERDUE' && a.status !== 'OVERDUE') return 1
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+      })
+
+      return {
+        overdue: reminders.filter((r) => r?.status === 'OVERDUE'),
+        upcoming: reminders.filter((r) => r?.status === 'PENDING'),
+        totalOutstanding: reminders.reduce((sum, r) => sum + (r?.balance ?? 0), 0),
+      }
     }),
 })

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Plus, Search, Users, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ import { CompanyBadge, CompanySelector } from '@/components/company/company-sele
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { useListPage } from '@/hooks/use-list-page'
 import { ListPagination } from '@/components/ui/list-pagination'
+import { useSearchParams } from 'next/navigation'
 
 const statusColors: Record<string, string> = {
   LEAD: 'text-[#4F8CFF] bg-[#4F8CFF]/10',
@@ -74,11 +75,25 @@ function CustomerCard({ customer, i }: { customer: any; i: number }) {
 }
 
 export default function CustomersPage() {
+  return (
+    <Suspense>
+      <CustomersPageContent />
+    </Suspense>
+  )
+}
+
+function CustomersPageContent() {
+  const searchParams = useSearchParams()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
   const [status, setStatus] = useState('')
   const { companyFilter, isAllCompanies } = useCompany()
   const { page, setPage } = useListPage(debouncedSearch, status, companyFilter)
+
+  useEffect(() => {
+    const q = searchParams.get('search') ?? searchParams.get('q')
+    if (q) setSearch(q)
+  }, [searchParams])
 
   const { data } = trpc.customer.list.useQuery({
     companyId: companyFilter,
@@ -123,7 +138,7 @@ export default function CustomersPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#52525B]" />
           <Input
-            placeholder="Search customers..."
+            placeholder="Search by customer name or GST..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"

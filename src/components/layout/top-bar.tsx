@@ -31,7 +31,7 @@ export function TopBar({ user }: { user: any }) {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (searchQuery.trim()) {
-      router.push(`/search?q=${encodeURIComponent(searchQuery)}`)
+      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`)
       setSearchOpen(false)
       setSearchQuery('')
     }
@@ -46,7 +46,7 @@ export function TopBar({ user }: { user: any }) {
           className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-[#111111] border border-[#262626] hover:border-[#333333] text-[#A1A1AA] text-sm transition-all w-[280px] lg:w-[360px]"
         >
           <Search className="h-3.5 w-3.5" />
-          <span className="flex-1 text-left">Search anything...</span>
+          <span className="flex-1 text-left">Search customers...</span>
           <kbd className="px-1.5 py-0.5 rounded bg-[#171717] text-[#A1A1AA] text-[10px] font-mono">/</kbd>
         </button>
 
@@ -104,7 +104,7 @@ export function TopBar({ user }: { user: any }) {
                   <input
                     ref={searchRef}
                     type="text"
-                    placeholder="Search customers, assets, invoices, tickets..."
+                    placeholder="Search customer name or GST..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full h-12 pl-11 pr-4 rounded-2xl bg-[#111111] border border-[#262626] text-white text-sm placeholder:text-[#A1A1AA] focus:outline-none focus:border-[#4F8CFF]/30 focus:ring-1 focus:ring-[#4F8CFF]/10"
