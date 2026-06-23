@@ -1,4 +1,5 @@
 export type QuarterPaymentStatus = 'PAID' | 'PENDING' | 'OVERDUE' | 'N/A'
+export type DbInstallmentStatus = 'PAID' | 'PENDING' | 'OVERDUE'
 
 export function quarterPaymentStatus(
   amount: number,
@@ -8,6 +9,18 @@ export function quarterPaymentStatus(
   if (amount <= 0) return 'N/A'
   if (paid >= amount) return 'PAID'
   if (new Date() > new Date(dueDate)) return 'OVERDUE'
+  return 'PENDING'
+}
+
+/** Maps computed status to the BillingStatus enum stored on installments. */
+export function dbInstallmentStatus(
+  amount: number,
+  paid: number,
+  dueDate: Date | string
+): DbInstallmentStatus {
+  const status = quarterPaymentStatus(amount, paid, dueDate)
+  if (status === 'PAID') return 'PAID'
+  if (status === 'OVERDUE') return 'OVERDUE'
   return 'PENDING'
 }
 

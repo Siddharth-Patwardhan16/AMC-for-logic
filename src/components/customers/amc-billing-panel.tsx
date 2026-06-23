@@ -6,9 +6,10 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/components/providers'
-import { categoryLabel, formatCurrency } from '@/lib/amc-billing'
+import { categoryLabel, formatCurrency, lineQuarterAmount, type LineItemInput } from '@/lib/amc-billing'
+import { quarterPaymentStatus } from '@/lib/amc-payment-utils'
+import { QuarterStatusBadge } from '@/components/finance/quarter-status'
 import { CompanyBadge } from '@/components/company/company-selector'
 
 type Schedule = {
@@ -61,22 +62,25 @@ type Schedule = {
   }[]
 }
 
-function qtyForQuarter(item: Schedule['lineItems'][0], q: number) {
-  if (q === 1) return item.qtyQ1
-  if (q === 2) return item.qtyQ2
-  if (q === 3) return item.qtyQ3
-  return item.qtyQ4
-}
-
-function lineQuarterValue(item: Schedule['lineItems'][0], q: number) {
-  const qty = qtyForQuarter(item, q)
-  return qty * Number(item.rateQuarterly)
-}
-
-function statusBadge(status: string) {
-  if (status === 'PAID') return <Badge variant="success" className="text-[10px]">Paid</Badge>
-  if (status === 'OVERDUE') return <Badge variant="destructive" className="text-[10px]">Overdue</Badge>
-  return <Badge variant="warning" className="text-[10px]">Pending</Badge>
+function lineItemAsInput(item: Schedule['lineItems'][0]): LineItemInput {
+  return {
+    categoryName: item.categoryName,
+    label: item.label ?? undefined,
+    rateYearly: Number(item.rateYearly),
+    rateQuarterly: Number(item.rateQuarterly),
+    qtyQ1: item.qtyQ1,
+    qtyQ2: item.qtyQ2,
+    qtyQ3: item.qtyQ3,
+    qtyQ4: item.qtyQ4,
+    includeInEmi: item.includeInEmi,
+    addons: item.addons.map((a) => ({
+      name: a.name,
+      rateYearly: Number(a.rateYearly),
+      rateQuarterly: Number(a.rateQuarterly),
+      quantity: a.quantity,
+      includeInEmi: a.includeInEmi,
+    })),
+  }
 }
 
 function PaymentForm({ installmentId, onDone }: { installmentId: string; onDone: () => void }) {
@@ -371,11 +375,14 @@ function ScheduleCard({
                   <td className="p-3 text-center text-white">{item.qtyQ2 || '—'}</td>
                   <td className="p-3 text-center text-white">{item.qtyQ3 || '—'}</td>
                   <td className="p-3 text-center text-white">{item.qtyQ4 || '—'}</td>
-                  {schedule.enableQuarterlySplit && [1, 2, 3, 4].map((q) => (
+                  {schedule.enableQuarterlySplit && ([1, 2, 3, 4] as const).map((q) => {
+                    const amt = lineQuarterAmount(lineItemAsInput(item), q)
+                    return (
                     <td key={q} className={`p-3 text-right ${item.includeInEmi ? 'text-[#22C55E]' : 'text-[#52525B]'}`}>
-                      {lineQuarterValue(item, q) > 0 ? formatCurrency(lineQuarterValue(item, q)) : '—'}
+                      {amt > 0 ? formatCurrency(amt) : '—'}
                     </td>
-                  ))}
+                    )
+                  })}
                   <td className="p-3">
                     <button type="button" onClick={() => deleteLineMutation.mutate({ id: item.id })}
                       className="text-[#52525B] hover:text-[#EF4444]">
@@ -425,6 +432,7 @@ function ScheduleCard({
               const paid = Number(inst.paidAmount)
               const total = Number(inst.amount)
               const remaining = Math.max(0, total - paid)
+              const status = quarterPaymentStatus(total, paid, inst.dueDate)
 
               return (
                 <div key={inst.id} className="p-4 rounded-xl bg-[#0A0A0A] border border-[#262626]">
@@ -433,7 +441,7 @@ function ScheduleCard({
                       <p className="text-sm font-medium text-white">{inst.label}</p>
                       <p className="text-[10px] text-[#52525B]">Due {new Date(inst.dueDate).toLocaleDateString('en-IN')}</p>
                     </div>
-                    {statusBadge(inst.status)}
+                    <QuarterStatusBadge status={status} />
                   </div>
                   <div className="flex items-baseline gap-2 mb-2">
                     <span className="text-lg font-bold text-white">{formatCurrency(total)}</span>
@@ -461,7 +469,7 @@ function ScheduleCard({
                       ))}
                     </div>
                   )}
-                  {inst.status !== 'PAID' && (
+                  {status !== 'PAID' && (
                     payingQuarter === inst.id ? (
                       <PaymentForm installmentId={inst.id} onDone={() => { setPayingQuarter(null); onRefresh() }} />
                     ) : (

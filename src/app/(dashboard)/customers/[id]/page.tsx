@@ -19,10 +19,8 @@ import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/components/providers'
 import { AmcBillingPanel } from '@/components/customers/amc-billing-panel'
 import { CompanyBadge } from '@/components/company/company-selector'
-
-function formatMoney(value: unknown) {
-  return `Rs. ${Number(value || 0).toLocaleString('en-IN')}`
-}
+import { customerPaymentSummaries } from '@/lib/amc-payment-utils'
+import { formatMoney } from '@/components/finance/quarter-status'
 
 function contractProgress(contract: { startDate: Date | string; endDate: Date | string }) {
   const start = new Date(contract.startDate).getTime()
@@ -95,6 +93,11 @@ function CustomerDetailContent() {
   }
 
   const { data: customer } = trpc.customer.get.useQuery({ id })
+
+  const { data: amcSchedules, isLoading: amcLoading } = trpc.amcSchedule.getByCustomer.useQuery(
+    { customerId: id },
+    { enabled: activeTab === 'amc' }
+  )
 
   if (!customer) return (
     <div className="p-8 flex items-center justify-center">
@@ -294,13 +297,7 @@ function CustomerDetailContent() {
             <div className="p-5 rounded-2xl bg-[#111111] border border-[#262626]">
               <h3 className="text-sm font-semibold text-white mb-4">Outstanding</h3>
               {(() => {
-                const installments = (customer as any).amcSchedules
-                  ?.filter((s: any) => s.enableQuarterlySplit)
-                  ?.flatMap((s: any) => s.installments ?? []) ?? []
-                const outstanding = installments.reduce((sum: number, i: any) => {
-                  const due = Number(i.amount) - Number(i.paidAmount)
-                  return sum + (due > 0 ? due : 0)
-                }, 0)
+                const { outstanding } = customerPaymentSummaries((customer as any).amcSchedules ?? [])
                 return (
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-[#EF4444]/10 flex items-center justify-center">
@@ -337,11 +334,17 @@ function CustomerDetailContent() {
         )}
 
         {activeTab === 'amc' && (
-          <AmcBillingPanel
-            customerId={id}
-            companyId={customer.companyId}
-            schedules={(customer as any).amcSchedules ?? []}
-          />
+          amcLoading ? (
+            <div className="flex justify-center py-16">
+              <div className="h-5 w-5 rounded-full border-2 border-[#4F8CFF] border-t-transparent animate-spin" />
+            </div>
+          ) : (
+            <AmcBillingPanel
+              customerId={id}
+              companyId={customer.companyId}
+              schedules={amcSchedules ?? []}
+            />
+          )
         )}
 
         {activeTab === 'history' && (

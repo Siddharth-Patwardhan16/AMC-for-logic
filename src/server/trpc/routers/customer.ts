@@ -54,10 +54,22 @@ export const customerRouter = router({
           assets: { include: { customerLocation: true } },
           contracts: { include: { billings: true } },
           amcSchedules: {
-            include: {
-              company: { select: { id: true, name: true } },
-              lineItems: { include: { addons: true } },
-              installments: { include: { payments: true }, orderBy: { quarter: 'asc' } },
+            select: {
+              id: true,
+              fiscalYear: true,
+              section: true,
+              enableQuarterlySplit: true,
+              yearlyAmount: true,
+              installments: {
+                select: {
+                  quarter: true,
+                  label: true,
+                  dueDate: true,
+                  amount: true,
+                  paidAmount: true,
+                },
+                orderBy: { quarter: 'asc' },
+              },
             },
             orderBy: { fiscalYear: 'desc' },
           },

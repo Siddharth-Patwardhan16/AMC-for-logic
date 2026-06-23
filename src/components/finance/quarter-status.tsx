@@ -48,8 +48,8 @@ export function QuarterStatusRow({
   )
 }
 
-function formatMoney(value: number) {
-  return `Rs. ${value.toLocaleString('en-IN')}`
+function formatMoney(value: number | string | unknown) {
+  return `Rs. ${Number(value || 0).toLocaleString('en-IN')}`
 }
 
 export { formatMoney }

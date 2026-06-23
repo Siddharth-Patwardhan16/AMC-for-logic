@@ -4,12 +4,14 @@ import {
   amountsFromLineItems,
   buildInstallmentCreates,
   ensureDefaultCategories,
+  loadLineItemsAsInput,
+  recalculateScheduleFromLineItems,
   sumYearly,
   syncScheduleInstallments,
 } from '@/lib/amc-schedule-sync'
 import type { LineItemInput } from '@/lib/amc-billing'
 import { paginatedResult, paginationFields, resolvePagination } from '@/lib/pagination'
-import { customerPaymentSummaries, quarterPaymentStatus } from '@/lib/amc-payment-utils'
+import { customerPaymentSummaries, dbInstallmentStatus, quarterPaymentStatus } from '@/lib/amc-payment-utils'
 
 const lineItemAddonSchema = z.object({
   name: z.string().min(1),
@@ -33,39 +35,14 @@ const lineItemSchema = z.object({
   addons: z.array(lineItemAddonSchema).default([]),
 })
 
-const installmentStatus = (amount: number, paid: number, dueDate: Date) => {
-  const status = quarterPaymentStatus(amount, paid, dueDate)
-  if (status === 'PAID') return 'PAID' as const
-  if (status === 'OVERDUE') return 'OVERDUE' as const
-  return 'PENDING' as const
-}
-
-async function lineItemsToInput(
-  prisma: { amcLineItem: { findMany: Function } },
-  scheduleId: string
-): Promise<LineItemInput[]> {
-  const items = await prisma.amcLineItem.findMany({
-    where: { scheduleId },
-    include: { addons: true },
-  })
-  return items.map((item: any) => ({
-    categoryName: item.categoryName,
-    label: item.label,
-    rateYearly: Number(item.rateYearly),
-    rateQuarterly: Number(item.rateQuarterly),
-    qtyQ1: item.qtyQ1,
-    qtyQ2: item.qtyQ2,
-    qtyQ3: item.qtyQ3,
-    qtyQ4: item.qtyQ4,
-    includeInEmi: item.includeInEmi,
-    addons: item.addons.map((a: any) => ({
-      name: a.name,
-      rateYearly: Number(a.rateYearly),
-      rateQuarterly: Number(a.rateQuarterly),
-      quantity: a.quantity,
-      includeInEmi: a.includeInEmi,
-    })),
-  }))
+const scheduleInclude = {
+  lineItems: { include: { addons: true, category: true }, orderBy: { categoryName: 'asc' as const } },
+  installments: {
+    include: { payments: { orderBy: { paymentDate: 'desc' as const } } },
+    orderBy: { quarter: 'asc' as const },
+  },
+  contract: true,
+  company: { select: { id: true, name: true } },
 }
 
 export const amcScheduleRouter = router({
@@ -102,15 +79,7 @@ export const amcScheduleRouter = router({
     .query(async ({ ctx, input }) => {
       return ctx.prisma.amcSchedule.findMany({
         where: { customerId: input.customerId },
-        include: {
-          lineItems: { include: { addons: true, category: true }, orderBy: { categoryName: 'asc' } },
-          installments: {
-            include: { payments: { orderBy: { paymentDate: 'desc' } } },
-            orderBy: { quarter: 'asc' },
-          },
-          contract: true,
-          company: { select: { id: true, name: true } },
-        },
+        include: scheduleInclude,
         orderBy: { fiscalYear: 'desc' },
       })
     }),
@@ -213,7 +182,7 @@ export const amcScheduleRouter = router({
       if (!schedule) throw new Error('Schedule not found')
 
       const enableQuarterlySplit = input.enableQuarterlySplit ?? schedule.enableQuarterlySplit
-      const lineItemInputs = await lineItemsToInput(ctx.prisma, input.id)
+      const lineItemInputs = await loadLineItemsAsInput(ctx.prisma, input.id)
       const autoAmounts = amountsFromLineItems(lineItemInputs)
 
       const amounts: [number, number, number, number] = enableQuarterlySplit && (input.useAutoQuarterlyAmounts ?? true)
@@ -295,24 +264,7 @@ export const amcScheduleRouter = router({
         include: { addons: true },
       })
 
-      const schedule = await ctx.prisma.amcSchedule.findUnique({ where: { id: scheduleId } })
-      if (schedule?.enableQuarterlySplit) {
-        const items = await lineItemsToInput(ctx.prisma, scheduleId)
-        const amounts = amountsFromLineItems(items)
-        await ctx.prisma.amcSchedule.update({
-          where: { id: scheduleId },
-          data: {
-            amountQ1: amounts[0],
-            amountQ2: amounts[1],
-            amountQ3: amounts[2],
-            amountQ4: amounts[3],
-            quarterlyTotal: sumYearly(amounts),
-            yearlyAmount: sumYearly(amounts),
-          },
-        })
-        await syncScheduleInstallments(ctx.prisma, scheduleId, true, amounts, schedule.fiscalYear)
-      }
-
+      await recalculateScheduleFromLineItems(ctx.prisma, scheduleId)
       return created
     }),
 
@@ -352,7 +304,7 @@ export const amcScheduleRouter = router({
           where: { id: installment.id },
           data: {
             paidAmount: newPaid,
-            status: installmentStatus(total, newPaid, installment.dueDate),
+            status: dbInstallmentStatus(total, newPaid, installment.dueDate),
           },
         })
 
@@ -372,7 +324,13 @@ export const amcScheduleRouter = router({
       includeInEmi: z.boolean().default(false),
     }))
     .mutation(async ({ ctx, input }) => {
-      return ctx.prisma.amcLineItemAddon.create({
+      const lineItem = await ctx.prisma.amcLineItem.findUnique({
+        where: { id: input.lineItemId },
+        select: { scheduleId: true },
+      })
+      if (!lineItem) throw new Error('Line item not found')
+
+      const addon = await ctx.prisma.amcLineItemAddon.create({
         data: {
           lineItemId: input.lineItemId,
           name: input.name,
@@ -382,6 +340,9 @@ export const amcScheduleRouter = router({
           includeInEmi: input.includeInEmi,
         },
       })
+
+      await recalculateScheduleFromLineItems(ctx.prisma, lineItem.scheduleId)
+      return addon
     }),
 
   deleteLineItem: protectedProcedure
@@ -391,24 +352,7 @@ export const amcScheduleRouter = router({
       if (!item) throw new Error('Line item not found')
 
       await ctx.prisma.amcLineItem.delete({ where: { id: input.id } })
-
-      const schedule = await ctx.prisma.amcSchedule.findUnique({ where: { id: item.scheduleId } })
-      if (schedule?.enableQuarterlySplit) {
-        const items = await lineItemsToInput(ctx.prisma, item.scheduleId)
-        const amounts = amountsFromLineItems(items)
-        await ctx.prisma.amcSchedule.update({
-          where: { id: item.scheduleId },
-          data: {
-            amountQ1: amounts[0],
-            amountQ2: amounts[1],
-            amountQ3: amounts[2],
-            amountQ4: amounts[3],
-            quarterlyTotal: sumYearly(amounts),
-            yearlyAmount: sumYearly(amounts),
-          },
-        })
-        await syncScheduleInstallments(ctx.prisma, item.scheduleId, true, amounts, schedule.fiscalYear)
-      }
+      await recalculateScheduleFromLineItems(ctx.prisma, item.scheduleId)
 
       return { success: true }
     }),
@@ -421,38 +365,65 @@ export const amcScheduleRouter = router({
     }).optional())
     .query(async ({ ctx, input }) => {
       const { page, pageSize, skip, take } = resolvePagination(input ?? undefined)
-      const where: Record<string, unknown> = {}
-      if (input?.companyId) where.companyId = input.companyId
+
+      const filters: Record<string, unknown>[] = [
+        { amcSchedules: { some: {} } },
+      ]
+      if (input?.companyId) filters.push({ companyId: input.companyId })
       if (input?.search?.trim()) {
-        where.OR = [
-          { name: { contains: input.search.trim(), mode: 'insensitive' } },
-          { gst: { contains: input.search.trim(), mode: 'insensitive' } },
-        ]
+        const term = input.search.trim()
+        filters.push({
+          OR: [
+            { name: { contains: term, mode: 'insensitive' } },
+            { gst: { contains: term, mode: 'insensitive' } },
+          ],
+        })
       }
 
-      const queryArgs = {
-        where,
-        include: {
-          company: { select: { id: true, name: true } },
-          amcSchedules: {
-            include: {
-              company: { select: { name: true } },
-              installments: { orderBy: { quarter: 'asc' as const } },
-            },
-            orderBy: { fiscalYear: 'desc' as const },
-          },
-          _count: { select: { invoices: true, quotations: true } },
-        },
-        orderBy: { name: 'asc' as const },
-      }
+      const where = { AND: filters }
 
       const [customers, total] = await Promise.all([
-        ctx.prisma.customer.findMany({ ...queryArgs, skip, take }),
+        ctx.prisma.customer.findMany({
+          where,
+          skip,
+          take,
+          select: {
+            id: true,
+            name: true,
+            gst: true,
+            status: true,
+            company: { select: { id: true, name: true } },
+            amcSchedules: {
+              select: {
+                id: true,
+                fiscalYear: true,
+                section: true,
+                enableQuarterlySplit: true,
+                yearlyAmount: true,
+                company: { select: { name: true } },
+                installments: {
+                  select: {
+                    id: true,
+                    quarter: true,
+                    label: true,
+                    dueDate: true,
+                    amount: true,
+                    paidAmount: true,
+                  },
+                  orderBy: { quarter: 'asc' },
+                },
+              },
+              orderBy: { fiscalYear: 'desc' },
+            },
+            _count: { select: { invoices: true, quotations: true } },
+          },
+          orderBy: { name: 'asc' },
+        }),
         ctx.prisma.customer.count({ where }),
       ])
 
       const items = customers.map((customer) => {
-        const payment = customerPaymentSummaries(customer.amcSchedules as any)
+        const payment = customerPaymentSummaries(customer.amcSchedules)
         return {
           id: customer.id,
           name: customer.name,
@@ -482,11 +453,23 @@ export const amcScheduleRouter = router({
 
       const installments = await ctx.prisma.amcQuarterInstallment.findMany({
         where: {
+          amount: { gt: 0 },
+          dueDate: { lte: horizon },
+          status: { in: ['PENDING', 'OVERDUE'] },
           schedule: input?.companyId ? { companyId: input.companyId } : undefined,
         },
-        include: {
+        select: {
+          id: true,
+          quarter: true,
+          label: true,
+          dueDate: true,
+          amount: true,
+          paidAmount: true,
           schedule: {
-            include: {
+            select: {
+              fiscalYear: true,
+              section: true,
+              company: { select: { name: true } },
               customer: {
                 select: {
                   id: true,
@@ -494,7 +477,6 @@ export const amcScheduleRouter = router({
                   company: { select: { name: true } },
                 },
               },
-              company: { select: { name: true } },
             },
           },
         },

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
+  LayoutDashboard,
   Users,
   Receipt,
   Bell,
@@ -30,6 +31,7 @@ const navigationGroups: NavGroup[] = [
   {
     label: 'Main',
     items: [
+      { name: 'Dashboard', href: '/', icon: LayoutDashboard },
       { name: 'Customers', href: '/customers', icon: Users },
       { name: 'Finance', href: '/finance', icon: Receipt },
       { name: 'Operations', href: '/operations', icon: Bell },
@@ -48,6 +50,9 @@ export function MinimalSidebar() {
   const pathname = usePathname()
 
   const isActive = (href: string) => {
+    if (href === '/') {
+      return pathname === '/'
+    }
     if (href === '/customers') {
       return pathname === '/customers' || pathname.startsWith('/customers/')
     }
@@ -86,7 +91,7 @@ export function MinimalSidebar() {
         )}
       >
         <div className="h-16 flex-shrink-0 flex items-center px-5 border-b border-[#262626]">
-          <Link href="/customers" onClick={() => setMobileOpen(false)} className="flex items-center gap-2.5">
+          <Link href="/" onClick={() => setMobileOpen(false)} className="flex items-center gap-2.5">
             <div className="h-7 w-7 rounded-lg bg-[#4F8CFF]/10 flex items-center justify-center">
               <div className="h-3 w-3 rounded-sm bg-[#4F8CFF]" />
             </div>
