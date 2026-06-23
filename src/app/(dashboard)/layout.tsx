@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation'
+import { redirect, unstable_rethrow } from 'next/navigation'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth-options'
 import { DashboardProviders } from '@/components/dashboard-providers'
@@ -14,6 +14,7 @@ export default async function DashboardLayout({
   try {
     session = await getServerSession(authOptions)
   } catch (error) {
+    unstable_rethrow(error)
     console.error('Dashboard session error:', error)
   }
 

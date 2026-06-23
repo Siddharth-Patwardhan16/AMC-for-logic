@@ -1,11 +1,10 @@
-import { CreateFormPlaceholder } from '@/components/create-form-placeholder'
+import { FinanceDocumentForm } from '@/components/finance/finance-document-form'
 
-export default function NewQuotationPage() {
-  return (
-    <CreateFormPlaceholder
-      title="New Quotation"
-      backHref="/quotations"
-      backLabel="Back to Quotations"
-    />
-  )
+interface NewQuotationPageProps {
+  searchParams: Promise<{ customerId?: string }>
+}
+
+export default async function NewQuotationPage({ searchParams }: NewQuotationPageProps) {
+  const { customerId } = await searchParams
+  return <FinanceDocumentForm mode="quotation" initialCustomerId={customerId} />
 }

@@ -11,28 +11,30 @@ import {
   FileText,
   Receipt,
   Wrench,
-  Clock,
   MapPin,
-  Phone,
-  Mail,
   Building2,
   CheckCircle2,
   AlertCircle,
-  ChevronRight,
-  TrendingUp
+  TrendingUp,
+  Edit3,
+  Plus,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/components/providers'
 import { AmcBillingPanel } from '@/components/customers/amc-billing-panel'
 import { CompanyBadge } from '@/components/company/company-selector'
 
-const statusConfig: Record<string, { color: string; bg: string; label: string }> = {
-  ACTIVE: { color: 'text-[#22C55E]', bg: 'bg-[#22C55E]/10', label: 'Active' },
-  INACTIVE: { color: 'text-[#A1A1AA]', bg: 'bg-[#171717]', label: 'Inactive' },
-  LEAD: { color: 'text-[#4F8CFF]', bg: 'bg-[#4F8CFF]/10', label: 'Lead' },
-  PROSPECT: { color: 'text-[#EAB308]', bg: 'bg-[#EAB308]/10', label: 'Prospect' },
-  CLOSED: { color: 'text-[#EF4444]', bg: 'bg-[#EF4444]/10', label: 'Closed' },
-  ARCHIVED: { color: 'text-[#52525B]', bg: 'bg-[#171717]', label: 'Archived' },
+function formatMoney(value: unknown) {
+  return `Rs. ${Number(value || 0).toLocaleString('en-IN')}`
+}
+
+function contractProgress(contract: { startDate: Date | string; endDate: Date | string }) {
+  const start = new Date(contract.startDate).getTime()
+  const end = new Date(contract.endDate).getTime()
+  const now = Date.now()
+
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0
+  return Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100))
 }
 
 function TimelineItem({ icon: Icon, title, subtitle, date, type }: any) {
@@ -77,8 +79,6 @@ export default function CustomerDetailPage() {
     </div>
   )
 
-  const status = statusConfig[customer.status] || statusConfig.ACTIVE
-
   const tabs = [
     { id: 'overview', label: 'Overview' },
     { id: 'amc', label: 'AMC Billing' },
@@ -96,6 +96,7 @@ export default function CustomerDetailPage() {
       title: `Contract ${c.contractNumber}`,
       subtitle: `${c.contractType.replace('_', ' ')} · ₹${Number(c.value).toLocaleString()}`,
       date: new Date(c.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+      rawDate: new Date(c.startDate).getTime(),
     })),
     ...customer.assets.map((a: any) => ({
       type: 'asset',
@@ -103,6 +104,7 @@ export default function CustomerDetailPage() {
       title: `${a.name} installed`,
       subtitle: `${a.assetType.replace('_', ' ')} · ${a.serialNumber}`,
       date: a.installationDate ? new Date(a.installationDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not installed',
+      rawDate: a.installationDate ? new Date(a.installationDate).getTime() : 0,
     })),
     ...customer.invoices.map((i: any) => ({
       type: 'invoice',
@@ -110,6 +112,15 @@ export default function CustomerDetailPage() {
       title: `Invoice ${i.invoiceNumber}`,
       subtitle: `₹${Number(i.totalAmount).toLocaleString()} · ${i.status}`,
       date: new Date(i.issueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+      rawDate: new Date(i.issueDate).getTime(),
+    })),
+    ...((customer as any).quotations ?? []).map((q: any) => ({
+      type: 'contract',
+      icon: FileText,
+      title: `Quotation ${q.quotationNumber}`,
+      subtitle: `${formatMoney(q.totalAmount)} · ${q.status}`,
+      date: new Date(q.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+      rawDate: new Date(q.createdAt).getTime(),
     })),
     ...customer.tickets.map((t: any) => ({
       type: 'ticket',
@@ -117,6 +128,7 @@ export default function CustomerDetailPage() {
       title: t.title,
       subtitle: `${t.status} · ${t.priority}`,
       date: new Date(t.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+      rawDate: new Date(t.createdAt).getTime(),
     })),
     ...customer.payments.map((p: any) => ({
       type: 'invoice',
@@ -124,6 +136,7 @@ export default function CustomerDetailPage() {
       title: `Payment received`,
       subtitle: `₹${Number(p.amount).toLocaleString()} · ${p.paymentMode?.replace('_', ' ') ?? 'Payment'}`,
       date: new Date(p.paymentDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+      rawDate: new Date(p.paymentDate).getTime(),
     })),
     ...customer.implementations.map((imp: any) => ({
       type: 'implementation',
@@ -131,8 +144,9 @@ export default function CustomerDetailPage() {
       title: imp.title,
       subtitle: imp.engineerName ? `By ${imp.engineerName}` : 'No engineer assigned',
       date: new Date(imp.implementDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+      rawDate: new Date(imp.implementDate).getTime(),
     })),
-  ].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  ].sort((a: any, b: any) => b.rawDate - a.rawDate)
 
   return (
     <div className="p-5 lg:p-8 max-w-[1200px] mx-auto">
@@ -165,6 +179,13 @@ export default function CustomerDetailPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              href={`/customers/${id}/edit`}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#262626] bg-[#111111] px-3 py-2 text-sm font-medium text-white transition-colors hover:border-[#333333]"
+            >
+              <Edit3 className="h-4 w-4" />
+              Edit
+            </Link>
             {customer.contactPersons?.[0] && (
               <div className="text-right hidden sm:block">
                 <p className="text-sm text-white">{customer.contactPersons[0].name}</p>
@@ -230,14 +251,14 @@ export default function CustomerDetailPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-[#A1A1AA]">Value</span>
-                    <span className="text-sm text-white font-medium">₹{Number(customer.contracts[0].value).toLocaleString()}</span>
+                    <span className="text-sm text-white font-medium">{formatMoney(customer.contracts[0].value)}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-[#A1A1AA]">Expires</span>
                     <span className="text-sm text-[#EAB308]">{new Date(customer.contracts[0].endDate).toLocaleDateString('en-IN')}</span>
                   </div>
                   <div className="h-2 rounded-full bg-[#171717] overflow-hidden mt-2">
-                    <div className="h-full bg-[#22C55E] rounded-full" style={{ width: '75%' }} />
+                    <div className="h-full bg-[#22C55E] rounded-full" style={{ width: `${contractProgress(customer.contracts[0])}%` }} />
                   </div>
                 </div>
               ) : (
@@ -289,7 +310,7 @@ export default function CustomerDetailPage() {
                       <TrendingUp className="h-5 w-5 text-[#EF4444]" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-white">₹{outstanding.toLocaleString()}</p>
+                      <p className="text-2xl font-bold text-white">{formatMoney(outstanding)}</p>
                       <p className="text-xs text-[#A1A1AA]">
                         {outstanding > 0 ? 'Pending quarterly EMIs' : 'No pending payments'}
                       </p>
@@ -369,23 +390,97 @@ export default function CustomerDetailPage() {
 
         {activeTab === 'finance' && (
           <div className="space-y-4">
-            {customer.invoices?.map((inv: any) => (
-              <div key={inv.id} className="p-4 rounded-2xl bg-[#111111] border border-[#262626] flex items-center justify-between hover:border-[#333333] transition-all">
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-xl bg-[#4F8CFF]/10 flex items-center justify-center">
-                    <Receipt className="h-4 w-4 text-[#4F8CFF]" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-white">{inv.invoiceNumber}</p>
-                    <p className="text-xs text-[#52525B]">{new Date(inv.issueDate).toLocaleDateString('en-IN')}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-medium text-white">₹{Number(inv.totalAmount).toLocaleString()}</p>
-                  <Badge variant={inv.status === 'PAID' ? 'success' : inv.status === 'OVERDUE' ? 'destructive' : 'warning'} className="text-[10px]">{inv.status}</Badge>
-                </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#262626] bg-[#111111] p-4">
+              <div>
+                <h3 className="text-sm font-semibold text-white">Finance actions</h3>
+                <p className="mt-1 text-xs text-[#A1A1AA]">Create customer-prefilled documents or open recent records.</p>
               </div>
-            )) || <p className="text-sm text-[#52525B]">No invoices</p>}
+              <div className="flex flex-wrap gap-2">
+                <Link href={`/invoices/new?customerId=${id}`} className="inline-flex items-center gap-2 rounded-xl bg-[#4F8CFF] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[#4F8CFF]/90">
+                  <Plus className="h-4 w-4" />
+                  New Invoice
+                </Link>
+                <Link href={`/quotations/new?customerId=${id}`} className="inline-flex items-center gap-2 rounded-xl border border-[#262626] bg-[#171717] px-3 py-2 text-sm font-medium text-white transition-colors hover:border-[#333333]">
+                  <Plus className="h-4 w-4" />
+                  New Quotation
+                </Link>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <section className="rounded-2xl border border-[#262626] bg-[#111111]">
+                <div className="border-b border-[#262626] px-4 py-3">
+                  <h3 className="text-sm font-semibold text-white">Invoices</h3>
+                </div>
+                <div className="space-y-2 p-3">
+                  {customer.invoices?.length ? customer.invoices.map((inv: any) => (
+                    <Link key={inv.id} href={`/invoices/${inv.id}`} className="flex items-center justify-between rounded-xl border border-[#262626] bg-[#0A0A0A] p-3 transition-colors hover:border-[#333333]">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-xl bg-[#4F8CFF]/10 flex items-center justify-center">
+                          <Receipt className="h-4 w-4 text-[#4F8CFF]" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-white">{inv.invoiceNumber}</p>
+                          <p className="text-xs text-[#52525B]">{new Date(inv.issueDate).toLocaleDateString('en-IN')}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-white">{formatMoney(inv.totalAmount)}</p>
+                        <Badge variant={inv.status === 'PAID' ? 'success' : inv.status === 'OVERDUE' ? 'destructive' : 'warning'} className="text-[10px]">{inv.status}</Badge>
+                      </div>
+                    </Link>
+                  )) : (
+                    <p className="p-4 text-sm text-[#52525B]">No invoices yet</p>
+                  )}
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-[#262626] bg-[#111111]">
+                <div className="border-b border-[#262626] px-4 py-3">
+                  <h3 className="text-sm font-semibold text-white">Quotations</h3>
+                </div>
+                <div className="space-y-2 p-3">
+                  {((customer as any).quotations ?? []).length ? (customer as any).quotations.map((quote: any) => (
+                    <Link key={quote.id} href={`/quotations/${quote.id}`} className="flex items-center justify-between rounded-xl border border-[#262626] bg-[#0A0A0A] p-3 transition-colors hover:border-[#333333]">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-xl bg-[#06B6D4]/10 flex items-center justify-center">
+                          <FileText className="h-4 w-4 text-[#06B6D4]" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-white">{quote.quotationNumber}</p>
+                          <p className="text-xs text-[#52525B]">v{quote.version}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-white">{formatMoney(quote.totalAmount)}</p>
+                        <Badge variant={quote.status === 'APPROVED' ? 'success' : quote.status === 'REJECTED' ? 'destructive' : 'default'} className="text-[10px]">{quote.status}</Badge>
+                      </div>
+                    </Link>
+                  )) : (
+                    <p className="p-4 text-sm text-[#52525B]">No quotations yet</p>
+                  )}
+                </div>
+              </section>
+            </div>
+
+            {customer.payments?.length ? (
+              <section className="rounded-2xl border border-[#262626] bg-[#111111]">
+                <div className="border-b border-[#262626] px-4 py-3">
+                  <h3 className="text-sm font-semibold text-white">Recent payments</h3>
+                </div>
+                <div className="divide-y divide-[#262626]">
+                  {customer.payments.map((payment: any) => (
+                    <div key={payment.id} className="flex items-center justify-between px-4 py-3">
+                      <div>
+                        <p className="text-sm text-white">{payment.paymentMode?.replace('_', ' ') ?? 'Payment'}</p>
+                        <p className="text-xs text-[#52525B]">{new Date(payment.paymentDate).toLocaleDateString('en-IN')}</p>
+                      </div>
+                      <p className="text-sm font-medium text-white">{formatMoney(payment.amount)}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
           </div>
         )}
 

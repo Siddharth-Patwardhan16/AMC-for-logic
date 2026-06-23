@@ -31,9 +31,9 @@ const lineItemSchema = z.object({
   addons: z.array(lineItemAddonSchema).default([]),
 })
 
-const installmentStatus = (amount: number, paid: number) => {
-  if (paid <= 0) return 'PENDING' as const
+const installmentStatus = (amount: number, paid: number, dueDate: Date) => {
   if (paid >= amount) return 'PAID' as const
+  if (new Date() > dueDate) return 'OVERDUE' as const
   return 'PENDING' as const
 }
 
@@ -349,7 +349,7 @@ export const amcScheduleRouter = router({
           where: { id: installment.id },
           data: {
             paidAmount: newPaid,
-            status: installmentStatus(total, newPaid),
+            status: installmentStatus(total, newPaid, installment.dueDate),
           },
         })
 

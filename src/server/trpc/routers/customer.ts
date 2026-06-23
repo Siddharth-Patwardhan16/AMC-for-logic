@@ -63,6 +63,7 @@ export const customerRouter = router({
           },
           tickets: { orderBy: { createdAt: 'desc' }, take: 10 },
           invoices: { orderBy: { createdAt: 'desc' }, take: 10 },
+          quotations: { orderBy: { createdAt: 'desc' }, take: 10 },
           implementations: { orderBy: { implementDate: 'desc' } },
           crmActivities: { orderBy: { createdAt: 'desc' } },
           documents: { orderBy: { createdAt: 'desc' } },

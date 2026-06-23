@@ -14,7 +14,8 @@ export const dashboardRouter = router({
         activeContracts,
         openTickets,
         pendingInvoices,
-        totalRevenue,
+        paymentRevenue,
+        paidInvoicesWithoutPayments,
         expiringContracts,
       ] = await Promise.all([
         ctx.prisma.customer.count({ where }),
@@ -23,8 +24,12 @@ export const dashboardRouter = router({
         ctx.prisma.contract.count({ where: { ...where, status: 'ACTIVE' } }),
         ctx.prisma.ticket.count({ where: { ...where, status: { in: ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'WAITING'] } } }),
         ctx.prisma.invoice.count({ where: { ...where, status: { in: ['SENT', 'PARTIAL', 'OVERDUE'] } } }),
+        ctx.prisma.payment.aggregate({
+          where: input?.companyId ? { customer: { companyId: input.companyId } } : {},
+          _sum: { amount: true },
+        }),
         ctx.prisma.invoice.aggregate({
-          where: { ...where, status: 'PAID' },
+          where: { ...where, status: 'PAID', payments: { none: {} } },
           _sum: { totalAmount: true },
         }),
         ctx.prisma.contract.findMany({
@@ -42,7 +47,7 @@ export const dashboardRouter = router({
         activeContracts,
         openTickets,
         pendingInvoices,
-        totalRevenue: totalRevenue._sum.totalAmount || 0,
+        totalRevenue: Number(paymentRevenue._sum.amount || 0) + Number(paidInvoicesWithoutPayments._sum.totalAmount || 0),
         expiringContracts,
       }
     }),
@@ -58,18 +63,28 @@ export const dashboardRouter = router({
         const start = new Date(date.getFullYear(), date.getMonth(), 1)
         const end = new Date(date.getFullYear(), date.getMonth() + 1, 0)
         
-        const revenue = await ctx.prisma.invoice.aggregate({
-          where: {
-            companyId: input?.companyId,
-            status: 'PAID',
-            issueDate: { gte: start, lte: end },
-          },
-          _sum: { totalAmount: true },
-        })
+        const [paymentRevenue, paidInvoicesWithoutPayments] = await Promise.all([
+          ctx.prisma.payment.aggregate({
+            where: {
+              ...(input?.companyId ? { customer: { companyId: input.companyId } } : {}),
+              paymentDate: { gte: start, lte: end },
+            },
+            _sum: { amount: true },
+          }),
+          ctx.prisma.invoice.aggregate({
+            where: {
+              companyId: input?.companyId,
+              status: 'PAID',
+              payments: { none: {} },
+              issueDate: { gte: start, lte: end },
+            },
+            _sum: { totalAmount: true },
+          }),
+        ])
         
         data.push({
           month: start.toLocaleString('default', { month: 'short', year: '2-digit' }),
-          revenue: Number(revenue._sum.totalAmount || 0),
+          revenue: Number(paymentRevenue._sum.amount || 0) + Number(paidInvoicesWithoutPayments._sum.totalAmount || 0),
         })
       }
       return data

@@ -1,8 +1,16 @@
 import { z } from 'zod'
+import { TRPCError } from '@trpc/server'
 import { protectedProcedure, router } from '../context'
 import { paginatedResult, paginationFields, resolvePagination } from '@/lib/pagination'
+import { getNextInvoiceNumber, getNextQuotationNumber } from '../utils/document-number'
 
 export const quotationRouter = router({
+  getNextNumber: protectedProcedure
+    .input(z.object({ companyId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return getNextQuotationNumber(ctx.prisma, input.companyId)
+    }),
+
   list: protectedProcedure
     .input(z.object({
       companyId: z.string().optional(),
@@ -46,8 +54,8 @@ export const quotationRouter = router({
         include: {
           customer: true,
           company: true,
-          items: true,
-          documents: true,
+          items: { orderBy: { createdAt: 'asc' } },
+          documents: { orderBy: { createdAt: 'desc' } },
         },
       })
     }),
@@ -97,6 +105,72 @@ export const quotationRouter = router({
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input
       return ctx.prisma.quotation.update({ where: { id }, data: data as any })
+    }),
+
+  convertToInvoice: protectedProcedure
+    .input(z.object({
+      id: z.string(),
+      dueDate: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.$transaction(async (tx) => {
+        const quotation = await tx.quotation.findUnique({
+          where: { id: input.id },
+          include: { items: true },
+        })
+
+        if (!quotation) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Quotation not found' })
+        }
+
+        if (quotation.status === 'CONVERTED') {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: 'This quotation has already been converted',
+          })
+        }
+
+        const invoiceNumber = await getNextInvoiceNumber(tx, quotation.companyId)
+        const dueDate = input.dueDate
+          ? new Date(input.dueDate)
+          : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+
+        const invoice = await tx.invoice.create({
+          data: {
+            invoiceNumber,
+            invoiceType: 'TAX_INVOICE',
+            status: 'DRAFT',
+            issueDate: new Date(),
+            dueDate,
+            subtotal: quotation.subtotal,
+            discount: quotation.discount,
+            taxAmount: quotation.taxAmount,
+            totalAmount: quotation.totalAmount,
+            notes: quotation.notes,
+            terms: quotation.terms,
+            customerId: quotation.customerId,
+            companyId: quotation.companyId,
+            items: {
+              create: quotation.items.map((item) => ({
+                description: item.description,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                discount: item.discount,
+                taxRate: item.taxRate,
+                total: item.total,
+              })),
+            },
+          },
+          include: { items: true },
+        })
+
+        await tx.quotation.update({
+          where: { id: quotation.id },
+          data: { status: 'CONVERTED' },
+        })
+
+        return invoice
+      })
     }),
 
   delete: protectedProcedure

@@ -1,8 +1,15 @@
 import { z } from 'zod'
 import { protectedProcedure, router } from '../context'
 import { paginatedResult, paginationFields, resolvePagination } from '@/lib/pagination'
+import { getNextInvoiceNumber } from '../utils/document-number'
 
 export const invoiceRouter = router({
+  getNextNumber: protectedProcedure
+    .input(z.object({ companyId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return getNextInvoiceNumber(ctx.prisma, input.companyId)
+    }),
+
   list: protectedProcedure
     .input(z.object({
       companyId: z.string().optional(),
@@ -50,10 +57,10 @@ export const invoiceRouter = router({
           customer: true,
           company: true,
           contract: true,
-          items: true,
-          payments: true,
+          items: { orderBy: { createdAt: 'asc' } },
+          payments: { orderBy: { paymentDate: 'desc' } },
           billings: true,
-          documents: true,
+          documents: { orderBy: { createdAt: 'desc' } },
         },
       })
     }),

@@ -22,7 +22,7 @@ export default defineConfig({
     },
     {
       name: 'authenticated',
-      testMatch: /routes\.spec\.ts/,
+      testMatch: /(?:routes|finance-flow)\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         storageState: 'playwright/.auth/user.json',
