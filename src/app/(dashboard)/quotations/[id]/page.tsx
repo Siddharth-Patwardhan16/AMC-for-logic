@@ -99,6 +99,7 @@ export default function QuotationDetailPage() {
             </div>
             <p className="mt-1 text-sm text-[#A1A1AA]">
               {quotation.customer?.name} · Valid until {formatDate(quotation.validUntil)}
+              {quotation.createdBy?.name && ` · Created by ${quotation.createdBy.name}`}
             </p>
           </div>
         </div>

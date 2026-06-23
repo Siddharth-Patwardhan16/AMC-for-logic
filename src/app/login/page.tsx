@@ -1,27 +1,53 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { signIn } from 'next-auth/react'
-import { Building2, Loader2 } from 'lucide-react'
+import { signIn, useSession } from 'next-auth/react'
+import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { FadeIn } from '@/components/ui/fade-in'
 
 export default function LoginPage() {
   const router = useRouter()
+  const { status } = useSession()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  useEffect(() => {
+    if (status === 'authenticated') {
+      router.replace('/')
+    }
+  }, [status, router])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const result = await signIn('credentials', { email, password, redirect: false })
-    if (result?.error) { setError('Invalid email or password'); setLoading(false) }
-    else { router.push('/'); router.refresh() }
+
+    const result = await signIn('credentials', {
+      email: email.trim().toLowerCase(),
+      password,
+      redirect: false,
+    })
+
+    if (result?.error) {
+      setError('Invalid email or password')
+      setLoading(false)
+      return
+    }
+
+    window.location.assign('/')
+  }
+
+  if (status === 'loading' || status === 'authenticated') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A]">
+        <div className="h-5 w-5 rounded-full border-2 border-[#4F8CFF] border-t-transparent animate-spin" />
+      </div>
+    )
   }
 
   return (
@@ -47,11 +73,25 @@ export default function LoginPage() {
             )}
             <div>
               <label className="text-xs text-[#A1A1AA] mb-1.5 block">Email</label>
-              <Input type="email" placeholder="admin@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <Input
+                type="email"
+                placeholder="admin@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                required
+              />
             </div>
             <div>
               <label className="text-xs text-[#A1A1AA] mb-1.5 block">Password</label>
-              <Input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <Input
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                required
+              />
             </div>
             <Button type="submit" className="w-full h-10 rounded-xl" disabled={loading}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}

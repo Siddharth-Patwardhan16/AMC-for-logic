@@ -22,10 +22,12 @@ model User {
   lastLoginAt   DateTime?
 
   // Relations
-  assignedTickets Ticket[] @relation("AssignedEngineer")
-  visits        EngineerVisit[]
-  createdById   String?
-  
+  assignedTickets   Ticket[]    @relation("AssignedEngineer")
+  visits            EngineerVisit[]
+  createdCustomers  Customer[]  @relation("CustomerCreatedBy")
+  createdInvoices   Invoice[]   @relation("InvoiceCreatedBy")
+  createdQuotations Quotation[] @relation("QuotationCreatedBy")
+
   @@map("users")
 }
 
@@ -83,6 +85,9 @@ model Customer {
   
   companyId       String
   company         Company        @relation(fields: [companyId], references: [id])
+
+  createdById     String?
+  createdBy       User?          @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
@@ -393,7 +398,10 @@ model Quotation {
   
   companyId   String
   company     Company   @relation(fields: [companyId], references: [id])
-  
+
+  createdById String?
+  createdBy   User?     @relation("QuotationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -451,7 +459,10 @@ model Invoice {
   
   contractId  String?
   contract    Contract? @relation(fields: [contractId], references: [id])
-  
+
+  createdById String?
+  createdBy   User?     @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

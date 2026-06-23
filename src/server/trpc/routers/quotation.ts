@@ -54,6 +54,7 @@ export const quotationRouter = router({
         include: {
           customer: true,
           company: true,
+          createdBy: { select: { id: true, name: true, email: true } },
           items: { orderBy: { createdAt: 'asc' } },
           documents: { orderBy: { createdAt: 'desc' } },
         },
@@ -89,6 +90,7 @@ export const quotationRouter = router({
       return ctx.prisma.quotation.create({
         data: {
           ...data,
+          createdById: ctx.user.id,
           items: { create: items },
         } as any,
         include: { items: true },
@@ -150,6 +152,7 @@ export const quotationRouter = router({
             terms: quotation.terms,
             customerId: quotation.customerId,
             companyId: quotation.companyId,
+            createdById: ctx.user.id,
             items: {
               create: quotation.items.map((item) => ({
                 description: item.description,

@@ -172,6 +172,9 @@ function CustomerDetailContent() {
               </div>
               <p className="text-sm text-[#A1A1AA] mt-0.5 flex flex-wrap items-center gap-2">
                 <span>{customer.industry || 'No industry'} · {customer.gst || 'No GST'}</span>
+                {(customer as any).createdBy?.name && (
+                  <span className="text-[#52525B]">· Created by {(customer as any).createdBy.name}</span>
+                )}
                 {(customer as any).company?.name && (
                   <CompanyBadge name={(customer as any).company.name} />
                 )}

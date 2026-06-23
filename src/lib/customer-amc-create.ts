@@ -17,6 +17,7 @@ export type CreateCustomerFromAmcParams = {
   gst?: string
   pan?: string
   billingAddress?: string
+  createdById?: string
   contactPersons?: {
     name: string
     email?: string
@@ -46,6 +47,7 @@ export async function createCustomerFromAmcRow(
     billingAddress,
     contactPersons = [],
     skipCategoryEnsure = false,
+    createdById,
   }: CreateCustomerFromAmcParams
 ) {
   const contractValue = row.yearlyAmount > 0 ? row.yearlyAmount : row.quarterlyTotal * 4
@@ -64,6 +66,7 @@ export async function createCustomerFromAmcRow(
         notes: buildAmcNotes(row),
         tags: ['amc-import', row.section?.toLowerCase().replace(/\s+/g, '-') ?? 'q1'],
         companyId,
+        createdById,
         locations: {
           create: [{
             name: row.location || 'Head Office',

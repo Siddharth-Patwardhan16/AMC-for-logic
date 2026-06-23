@@ -121,6 +121,7 @@ export default function InvoiceDetailPage() {
             </div>
             <p className="mt-1 text-sm text-[#A1A1AA]">
               {invoice.customer?.name} · Issued {formatDate(invoice.issueDate)} · Due {formatDate(invoice.dueDate)}
+              {invoice.createdBy?.name && ` · Created by ${invoice.createdBy.name}`}
             </p>
           </div>
         </div>

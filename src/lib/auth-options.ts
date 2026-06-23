@@ -2,11 +2,14 @@ import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 
+const authSecret = process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET
+
 export const authOptions: NextAuthOptions = {
-  session: { strategy: 'jwt' },
-  secret: process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET,
+  session: { strategy: 'jwt', maxAge: 30 * 24 * 60 * 60 },
+  secret: authSecret,
   pages: {
     signIn: '/login',
+    signOut: '/login',
     error: '/login',
   },
   providers: [
@@ -22,9 +25,9 @@ export const authOptions: NextAuthOptions = {
         try {
           const { prisma } = await import('@/lib/prisma')
           const user = await prisma.user.findUnique({
-            where: { email: credentials.email },
+            where: { email: credentials.email.trim().toLowerCase() },
           })
-          if (!user) return null
+          if (!user || user.status !== 'ACTIVE') return null
 
           const valid = await bcrypt.compare(credentials.password, user.password)
           if (!valid) return null
@@ -45,13 +48,18 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        token.sub = user.id
+        token.email = user.email
+        token.name = user.name
         token.role = user.role
       }
       return token
     },
     async session({ session, token }) {
-      if (token) {
-        session.user.id = token.sub as string
+      if (token?.sub) {
+        session.user.id = token.sub
+        session.user.email = token.email as string
+        session.user.name = token.name as string | null | undefined
         session.user.role = token.role as string
       }
       return session

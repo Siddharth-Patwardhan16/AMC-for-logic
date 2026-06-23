@@ -49,6 +49,7 @@ export const customerRouter = router({
         where: { id: input.id },
         include: {
           company: { select: { id: true, name: true } },
+          createdBy: { select: { id: true, name: true, email: true } },
           locations: true,
           contactPersons: true,
           assets: { include: { customerLocation: true } },
@@ -152,12 +153,14 @@ export const customerRouter = router({
           pan: data.pan,
           billingAddress: data.billingAddress,
           contactPersons,
+          createdById: ctx.user.id,
         })
       }
 
       return ctx.prisma.customer.create({
         data: {
           ...data,
+          createdById: ctx.user.id,
           locations: { create: locations },
           contactPersons: { create: contactPersons },
         } as any,
@@ -240,6 +243,7 @@ export const customerRouter = router({
             row: { ...row, srNo: row.srNo ?? null },
             companyId,
             skipCategoryEnsure: true,
+            createdById: ctx.user.id,
           })
 
           existingKeys.add(`${companyId}:${row.name.trim().toLowerCase()}`)

@@ -57,6 +57,7 @@ export const invoiceRouter = router({
           customer: true,
           company: true,
           contract: true,
+          createdBy: { select: { id: true, name: true, email: true } },
           items: { orderBy: { createdAt: 'asc' } },
           payments: { orderBy: { paymentDate: 'desc' } },
           billings: true,
@@ -95,6 +96,7 @@ export const invoiceRouter = router({
       return ctx.prisma.invoice.create({
         data: {
           ...data,
+          createdById: ctx.user.id,
           items: { create: items },
         } as any,
         include: { items: true },

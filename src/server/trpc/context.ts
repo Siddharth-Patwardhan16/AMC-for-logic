@@ -3,8 +3,10 @@ import { NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 import { prisma } from '@/lib/prisma'
 
+const authSecret = process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET
+
 export async function createContext(req: NextRequest) {
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
+  const token = await getToken({ req, secret: authSecret })
   
   return {
     prisma,
