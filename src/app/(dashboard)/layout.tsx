@@ -26,7 +26,7 @@ export default async function DashboardLayout({
     <DashboardProviders>
       <div className="min-h-screen bg-[#0A0A0A]">
         <MinimalSidebar />
-        <div className="lg:ml-[200px]">
+        <div className="lg:ml-[220px]">
           <TopBar user={session.user} />
           <main className="pt-14">
             {children}

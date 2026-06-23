@@ -39,7 +39,7 @@ export function TopBar({ user }: { user: any }) {
 
   return (
     <>
-      <header className="fixed top-0 right-0 left-0 lg:left-[200px] z-30 h-14 flex items-center justify-between px-5 bg-[#0A0A0A]/80 backdrop-blur-xl border-b border-[#262626]">
+      <header className="fixed top-0 right-0 left-0 lg:left-[220px] z-30 h-14 flex items-center justify-between px-5 bg-[#0A0A0A]/80 backdrop-blur-xl border-b border-[#262626]">
         {/* Search */}
         <button
           onClick={() => { setSearchOpen(true); setTimeout(() => searchRef.current?.focus(), 50) }}
