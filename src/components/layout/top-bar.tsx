@@ -118,7 +118,7 @@ export function TopBar({ user }: { user: any }) {
                   {[
                     { label: 'New Customer', shortcut: 'C', action: () => router.push('/customers/new') },
                     { label: 'New Invoice', shortcut: 'I', action: () => router.push('/invoices/new') },
-                    { label: 'New Ticket', shortcut: 'T', action: () => router.push('/tickets/new') },
+                    { label: 'New Quotation', shortcut: 'Q', action: () => router.push('/quotations/new') },
                   ].map((item) => (
                     <button
                       key={item.label}
